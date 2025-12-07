@@ -175,4 +175,3 @@ def get_models():
 
 # Vercel handler
 app = app
-
