@@ -1,15 +1,81 @@
 """Database models and storage for evaluation results."""
 import json
 import numpy as np
-from sqlalchemy import create_engine, Column, String, Float, Boolean, DateTime, Text, JSON
+import uuid
+from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import create_engine, Column, String, Float, Boolean, DateTime, Text, JSON, Integer, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, relationship
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from config import Config
 from models import EvaluationResult, EvaluationBatch
+from flask_login import UserMixin
 
 Base = declarative_base()
+
+
+class User(Base, UserMixin):
+    """User model for authentication."""
+    __tablename__ = "users"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String(120), unique=True, nullable=False, index=True)
+    username = Column(String(80), unique=True, nullable=False, index=True)
+    password_hash = Column(String(256), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
+    
+    # Relationships
+    evaluations = relationship("EvaluationResultDB", back_populates="user", lazy="dynamic")
+    templates = relationship("PromptTemplate", back_populates="user", lazy="dynamic")
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "username": self.username,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class PromptTemplate(Base):
+    """Prompt template model for saving reusable templates."""
+    __tablename__ = "prompt_templates"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)  # Null for system templates
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    category = Column(String(50), default="custom")  # qa, summarization, code, custom
+    prompt_template = Column(Text, nullable=False)
+    reference_template = Column(Text)  # Optional reference text template
+    is_public = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="templates")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "description": self.description,
+            "category": self.category,
+            "prompt_template": self.prompt_template,
+            "reference_template": self.reference_template,
+            "is_public": self.is_public,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
 
 def convert_to_serializable(obj):
     """Convert numpy types to native Python types for JSON serialization."""
@@ -30,6 +96,7 @@ class EvaluationResultDB(Base):
     __tablename__ = "evaluation_results"
     
     id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)  # Null for anonymous evaluations
     prompt = Column(Text, nullable=False)
     llm_output = Column(Text, nullable=False)
     model_name = Column(String, nullable=False)
@@ -48,6 +115,9 @@ class EvaluationResultDB(Base):
     is_hallucination = Column(Boolean, default=False)
     confidence = Column(Float, default=0.0)
     evaluation_metadata = Column(JSON)
+    
+    # Relationships
+    user = relationship("User", back_populates="evaluations")
 
 class EvaluationBatchDB(Base):
     """Database model for evaluation batches."""
@@ -238,4 +308,272 @@ class Database:
             trends[key]["data_points"].sort(key=lambda x: x["timestamp"])
         
         return trends
+    
+    # ============ User Methods ============
+    
+    def create_user(self, email: str, username: str, password: str) -> Optional[User]:
+        """Create a new user."""
+        session = self.SessionLocal()
+        try:
+            # Check if user already exists
+            existing = session.query(User).filter(
+                (User.email == email) | (User.username == username)
+            ).first()
+            if existing:
+                print(f"User already exists: {email} / {username}")
+                return None
+            
+            user = User(email=email, username=username)
+            user.set_password(password)
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+            return user
+        except Exception as e:
+            session.rollback()
+            print(f"Error creating user: {e}")
+            return None
+        finally:
+            session.close()
+    
+    def get_user_by_id(self, user_id: str) -> Optional[User]:
+        """Get user by ID."""
+        session = self.SessionLocal()
+        try:
+            return session.query(User).filter(User.id == user_id).first()
+        finally:
+            session.close()
+    
+    def get_user_by_email(self, email: str) -> Optional[User]:
+        """Get user by email."""
+        session = self.SessionLocal()
+        try:
+            return session.query(User).filter(User.email == email).first()
+        finally:
+            session.close()
+    
+    def get_user_by_username(self, username: str) -> Optional[User]:
+        """Get user by username."""
+        session = self.SessionLocal()
+        try:
+            return session.query(User).filter(User.username == username).first()
+        finally:
+            session.close()
+    
+    def authenticate_user(self, email_or_username: str, password: str) -> Optional[User]:
+        """Authenticate user by email/username and password."""
+        session = self.SessionLocal()
+        try:
+            user = session.query(User).filter(
+                (User.email == email_or_username) | (User.username == email_or_username)
+            ).first()
+            if user and user.check_password(password):
+                return user
+            return None
+        finally:
+            session.close()
+    
+    # ============ Template Methods ============
+    
+    def create_template(self, name: str, prompt_template: str, user_id: Optional[str] = None,
+                       description: str = "", category: str = "custom",
+                       reference_template: str = None, is_public: bool = False) -> PromptTemplate:
+        """Create a new prompt template."""
+        session = self.SessionLocal()
+        try:
+            template = PromptTemplate(
+                name=name,
+                user_id=user_id,
+                description=description,
+                category=category,
+                prompt_template=prompt_template,
+                reference_template=reference_template,
+                is_public=is_public
+            )
+            session.add(template)
+            session.commit()
+            session.refresh(template)
+            return template
+        finally:
+            session.close()
+    
+    def get_templates(self, user_id: Optional[str] = None, category: Optional[str] = None,
+                     include_public: bool = True) -> List[Dict[str, Any]]:
+        """Get prompt templates."""
+        session = self.SessionLocal()
+        try:
+            query = session.query(PromptTemplate)
+            
+            if user_id:
+                if include_public:
+                    query = query.filter(
+                        (PromptTemplate.user_id == user_id) | 
+                        (PromptTemplate.is_public == True) |
+                        (PromptTemplate.user_id == None)  # System templates
+                    )
+                else:
+                    query = query.filter(PromptTemplate.user_id == user_id)
+            else:
+                # Only show public and system templates for anonymous users
+                query = query.filter(
+                    (PromptTemplate.is_public == True) | (PromptTemplate.user_id == None)
+                )
+            
+            if category:
+                query = query.filter(PromptTemplate.category == category)
+            
+            templates = query.order_by(PromptTemplate.created_at.desc()).all()
+            return [t.to_dict() for t in templates]
+        finally:
+            session.close()
+    
+    def get_template_by_id(self, template_id: str) -> Optional[Dict[str, Any]]:
+        """Get a template by ID."""
+        session = self.SessionLocal()
+        try:
+            template = session.query(PromptTemplate).filter(PromptTemplate.id == template_id).first()
+            return template.to_dict() if template else None
+        finally:
+            session.close()
+    
+    def delete_template(self, template_id: str, user_id: str) -> bool:
+        """Delete a template (only if owned by user)."""
+        session = self.SessionLocal()
+        try:
+            template = session.query(PromptTemplate).filter(
+                PromptTemplate.id == template_id,
+                PromptTemplate.user_id == user_id
+            ).first()
+            if template:
+                session.delete(template)
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+    
+    def save_result_with_user(self, result: EvaluationResult, user_id: Optional[str] = None) -> None:
+        """Save an evaluation result with user association."""
+        session = self.SessionLocal()
+        try:
+            db_result = EvaluationResultDB(
+                id=result.id,
+                user_id=user_id,
+                prompt=result.prompt,
+                llm_output=result.llm_output,
+                model_name=result.model_name,
+                prompt_version=result.prompt_version,
+                timestamp=result.timestamp,
+                semantic_similarity_score=float(result.semantic_similarity_score),
+                fact_check_score=float(result.fact_check_score),
+                rule_based_score=float(result.rule_based_score),
+                overall_hallucination_score=float(result.overall_hallucination_score),
+                fact_check_details=convert_to_serializable(result.fact_check_details),
+                semantic_similarity_details=convert_to_serializable(result.semantic_similarity_details),
+                rule_based_details=convert_to_serializable(result.rule_based_details),
+                is_hallucination=bool(result.is_hallucination),
+                confidence=float(result.confidence),
+                evaluation_metadata=convert_to_serializable(result.evaluation_metadata)
+            )
+            session.add(db_result)
+            session.commit()
+        finally:
+            session.close()
+    
+    def get_user_results(self, user_id: str, limit: int = 100) -> List[EvaluationResult]:
+        """Get evaluation results for a specific user."""
+        session = self.SessionLocal()
+        try:
+            query = session.query(EvaluationResultDB).filter(
+                EvaluationResultDB.user_id == user_id
+            ).order_by(EvaluationResultDB.timestamp.desc()).limit(limit)
+            
+            db_results = query.all()
+            results = []
+            for db_result in db_results:
+                result = EvaluationResult(
+                    id=db_result.id,
+                    prompt=db_result.prompt,
+                    llm_output=db_result.llm_output,
+                    model_name=db_result.model_name,
+                    prompt_version=db_result.prompt_version,
+                    timestamp=db_result.timestamp,
+                    semantic_similarity_score=db_result.semantic_similarity_score,
+                    fact_check_score=db_result.fact_check_score,
+                    rule_based_score=db_result.rule_based_score,
+                    overall_hallucination_score=db_result.overall_hallucination_score,
+                    fact_check_details=db_result.fact_check_details or {},
+                    semantic_similarity_details=db_result.semantic_similarity_details or {},
+                    rule_based_details=db_result.rule_based_details or {},
+                    is_hallucination=db_result.is_hallucination,
+                    confidence=db_result.confidence,
+                    evaluation_metadata=db_result.evaluation_metadata or {}
+                )
+                results.append(result)
+            return results
+        finally:
+            session.close()
+    
+    def init_default_templates(self):
+        """Initialize default system templates."""
+        session = self.SessionLocal()
+        try:
+            # Check if templates already exist
+            existing = session.query(PromptTemplate).filter(PromptTemplate.user_id == None).count()
+            if existing > 0:
+                return
+            
+            default_templates = [
+                {
+                    "name": "Q&A Accuracy Test",
+                    "description": "Test question-answering accuracy with a reference answer",
+                    "category": "qa",
+                    "prompt_template": "Question: {question}\n\nPlease provide a detailed answer.",
+                    "reference_template": "{reference_answer}",
+                },
+                {
+                    "name": "Summarization Evaluation",
+                    "description": "Evaluate text summarization quality",
+                    "category": "summarization",
+                    "prompt_template": "Please summarize the following text:\n\n{text}",
+                    "reference_template": "{reference_summary}",
+                },
+                {
+                    "name": "Fact Verification",
+                    "description": "Verify factual claims in LLM responses",
+                    "category": "fact_check",
+                    "prompt_template": "Please provide information about: {topic}",
+                    "reference_template": "{verified_facts}",
+                },
+                {
+                    "name": "Code Generation Test",
+                    "description": "Test code generation accuracy",
+                    "category": "code",
+                    "prompt_template": "Write a {language} function that {task_description}",
+                    "reference_template": "{reference_code}",
+                },
+                {
+                    "name": "Translation Quality",
+                    "description": "Evaluate translation accuracy",
+                    "category": "translation",
+                    "prompt_template": "Translate the following text from {source_lang} to {target_lang}:\n\n{text}",
+                    "reference_template": "{reference_translation}",
+                },
+            ]
+            
+            for t in default_templates:
+                template = PromptTemplate(
+                    name=t["name"],
+                    description=t["description"],
+                    category=t["category"],
+                    prompt_template=t["prompt_template"],
+                    reference_template=t.get("reference_template"),
+                    is_public=True,
+                    user_id=None  # System template
+                )
+                session.add(template)
+            
+            session.commit()
+        finally:
+            session.close()
 

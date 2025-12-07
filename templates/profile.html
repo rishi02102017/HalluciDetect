@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - HalluciDetect{% endblock %}
+
+{% block header_title %}Profile{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <!-- Profile Header -->
+    <div class="profile-header">
+        <div class="profile-avatar-large">
+            {{ current_user.username[0].upper() }}
+        </div>
+        <div class="profile-header-info">
+            <h1 class="profile-name">{{ current_user.username }}</h1>
+            <p class="profile-email">{{ current_user.email }}</p>
+            <div class="profile-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                    <path d="m9 12 2 2 4-4"/>
+                </svg>
+                Verified Account
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="profile-stats">
+        <div class="profile-stat-card">
+            <div class="profile-stat-value" id="total-evals">--</div>
+            <div class="profile-stat-label">Total Evaluations</div>
+        </div>
+        <div class="profile-stat-card">
+            <div class="profile-stat-value" id="hallucination-count">--</div>
+            <div class="profile-stat-label">Hallucinations Found</div>
+        </div>
+        <div class="profile-stat-card">
+            <div class="profile-stat-value" id="models-used">--</div>
+            <div class="profile-stat-label">Models Tested</div>
+        </div>
+        <div class="profile-stat-card">
+            <div class="profile-stat-value" id="templates-count">--</div>
+            <div class="profile-stat-label">Custom Templates</div>
+        </div>
+    </div>
+    
+    <!-- Account Details -->
+    <div class="profile-section">
+        <h2 class="profile-section-title">Account Details</h2>
+        <div class="profile-details-grid">
+            <div class="profile-detail-item">
+                <div class="profile-detail-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                </div>
+                <div class="profile-detail-content">
+                    <div class="profile-detail-label">Username</div>
+                    <div class="profile-detail-value">{{ current_user.username }}</div>
+                </div>
+            </div>
+            <div class="profile-detail-item">
+                <div class="profile-detail-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="20" height="16" x="2" y="4" rx="2"/>
+                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                    </svg>
+                </div>
+                <div class="profile-detail-content">
+                    <div class="profile-detail-label">Email Address</div>
+                    <div class="profile-detail-value">{{ current_user.email }}</div>
+                </div>
+            </div>
+            <div class="profile-detail-item">
+                <div class="profile-detail-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+                        <line x1="16" x2="16" y1="2" y2="6"/>
+                        <line x1="8" x2="8" y1="2" y2="6"/>
+                        <line x1="3" x2="21" y1="10" y2="10"/>
+                    </svg>
+                </div>
+                <div class="profile-detail-content">
+                    <div class="profile-detail-label">Member Since</div>
+                    <div class="profile-detail-value">{{ current_user.created_at.strftime('%B %d, %Y') if current_user.created_at else 'N/A' }}</div>
+                </div>
+            </div>
+            <div class="profile-detail-item">
+                <div class="profile-detail-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 6v6l4 2"/>
+                    </svg>
+                </div>
+                <div class="profile-detail-content">
+                    <div class="profile-detail-label">Account Status</div>
+                    <div class="profile-detail-value profile-status-active">
+                        <span class="status-dot"></span>
+                        Active
+                    </div>
+                </div>
+            </div>
+            <div class="profile-detail-item">
+                <div class="profile-detail-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="20" height="14" x="2" y="5" rx="2"/>
+                        <line x1="2" x2="22" y1="10" y2="10"/>
+                    </svg>
+                </div>
+                <div class="profile-detail-content">
+                    <div class="profile-detail-label">Plan</div>
+                    <div class="profile-detail-value">Free Tier</div>
+                </div>
+            </div>
+            <div class="profile-detail-item">
+                <div class="profile-detail-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        <polyline points="3.29 7 12 12 20.71 7"/>
+                        <line x1="12" x2="12" y1="22" y2="12"/>
+                    </svg>
+                </div>
+                <div class="profile-detail-content">
+                    <div class="profile-detail-label">User ID</div>
+                    <div class="profile-detail-value profile-user-id">{{ current_user.id[:8] }}...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Actions -->
+    <div class="profile-section">
+        <h2 class="profile-section-title">Account Actions</h2>
+        <div class="profile-actions">
+            <a href="{{ url_for('logout') }}" class="profile-action-btn profile-action-danger">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" x2="9" y1="12" y2="12"/>
+                </svg>
+                Sign Out
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.profile-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    padding: 2rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    margin-bottom: 1.5rem;
+}
+
+.profile-avatar-large {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+}
+
+.profile-header-info {
+    flex: 1;
+}
+
+.profile-name {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.profile-email {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+.profile-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 100px;
+    font-size: 0.8125rem;
+    color: var(--accent-success);
+}
+
+.profile-badge svg {
+    width: 14px;
+    height: 14px;
+}
+
+.profile-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.profile-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.25rem;
+    text-align: center;
+}
+
+.profile-stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.profile-stat-label {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.profile-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.profile-section-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.profile-details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.profile-detail-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+}
+
+.profile-detail-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(99, 102, 241, 0.1);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.profile-detail-icon svg {
+    width: 20px;
+    height: 20px;
+    color: var(--accent-primary);
+}
+
+.profile-detail-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.profile-detail-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+}
+
+.profile-detail-value {
+    font-size: 0.9375rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.profile-status-active {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--accent-success);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-success);
+    border-radius: 50%;
+    animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.profile-user-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.profile-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.profile-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: none;
+}
+
+.profile-action-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--accent-danger);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.profile-action-danger:hover {
+    background: rgba(239, 68, 68, 0.2);
+}
+
+.profile-action-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+@media (max-width: 768px) {
+    .profile-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .profile-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .profile-details-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load user stats
+async function loadUserStats() {
+    try {
+        const response = await fetch('/api/results?limit=10000');
+        const results = await response.json();
+        
+        document.getElementById('total-evals').textContent = results.length;
+        
+        const hallucinations = results.filter(r => r.is_hallucination).length;
+        document.getElementById('hallucination-count').textContent = hallucinations;
+        
+        const models = new Set(results.map(r => r.model_name));
+        document.getElementById('models-used').textContent = models.size;
+        
+        // Load templates count
+        const templatesResponse = await fetch('/api/templates');
+        const templates = await templatesResponse.json();
+        const userTemplates = templates.filter(t => t.user_id !== null);
+        document.getElementById('templates-count').textContent = userTemplates.length;
+        
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadUserStats);
+</script>
+{% endblock %}
+

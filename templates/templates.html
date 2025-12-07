@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+
+{% block title %}Templates - HalluciDetect{% endblock %}
+
+{% block header_title %}Prompt Templates{% endblock %}
+
+{% block header_actions %}
+<button class="btn btn-primary" onclick="showCreateModal()">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Create Template
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="templates-container">
+    <!-- Category Filter -->
+    <div class="category-pills">
+        <button class="category-pill active" data-category="all">All</button>
+        <button class="category-pill" data-category="qa">Q&A</button>
+        <button class="category-pill" data-category="summarization">Summarization</button>
+        <button class="category-pill" data-category="fact_check">Fact Check</button>
+        <button class="category-pill" data-category="code">Code</button>
+        <button class="category-pill" data-category="translation">Translation</button>
+        <button class="category-pill" data-category="custom">Custom</button>
+    </div>
+    
+    <!-- Templates Grid -->
+    <div class="templates-grid" id="templatesGrid">
+        <!-- Templates will be loaded here -->
+    </div>
+    
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState" style="display: none;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 64px; height: 64px; color: var(--text-muted); margin-bottom: 1rem;">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="3" y1="9" x2="21" y2="9"/>
+            <line x1="9" y1="21" x2="9" y2="9"/>
+        </svg>
+        <h3 style="margin-bottom: 0.5rem;">No templates found</h3>
+        <p style="color: var(--text-secondary);">Create your first template to get started</p>
+    </div>
+</div>
+
+<!-- Create/Edit Template Modal -->
+<div class="modal" id="templateModal" style="display: none;">
+    <div class="modal-backdrop" onclick="closeModal()"></div>
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2 id="modalTitle">Create Template</h2>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <form id="templateForm" onsubmit="saveTemplate(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Template Name *</label>
+                    <input type="text" name="name" id="templateName" class="form-input" placeholder="e.g., Product Description Test" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select name="category" id="templateCategory" class="form-select">
+                        <option value="custom">Custom</option>
+                        <option value="qa">Q&A</option>
+                        <option value="summarization">Summarization</option>
+                        <option value="fact_check">Fact Check</option>
+                        <option value="code">Code</option>
+                        <option value="translation">Translation</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <input type="text" name="description" id="templateDescription" class="form-input" placeholder="Brief description of this template">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Prompt Template *</label>
+                    <textarea name="prompt_template" id="templatePrompt" class="form-textarea" rows="4" placeholder="Use {variable} for placeholders. e.g., What is the capital of {country}?" required></textarea>
+                    <span class="form-hint">Use {variable_name} syntax for placeholders that will be filled during evaluation</span>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Reference Template (Optional)</label>
+                    <textarea name="reference_template" id="templateReference" class="form-textarea" rows="3" placeholder="Expected answer template. e.g., The capital of {country} is {capital}."></textarea>
+                    <span class="form-hint">Template for the expected/reference answer</span>
+                </div>
+                
+                <div class="form-checkbox" style="margin-top: 1rem;">
+                    <input type="checkbox" name="is_public" id="templatePublic">
+                    <label for="templatePublic">Make this template public (visible to all users)</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="saveBtn">Save Template</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Use Template Modal -->
+<div class="modal" id="useTemplateModal" style="display: none;">
+    <div class="modal-backdrop" onclick="closeUseModal()"></div>
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2>Use Template</h2>
+            <button class="modal-close" onclick="closeUseModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Template</label>
+                <div id="useTemplatePreview" class="template-card-preview" style="max-height: none;"></div>
+            </div>
+            
+            <div id="variableInputs">
+                <!-- Variable inputs will be generated here -->
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Generated Prompt</label>
+                <textarea id="generatedPrompt" class="form-textarea" rows="4" readonly></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Generated Reference (if any)</label>
+                <textarea id="generatedReference" class="form-textarea" rows="3" readonly></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeUseModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="goToPlayground()">Use in Playground</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-hint {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+    }
+    
+    .form-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-checkbox input {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--accent-primary);
+    }
+    
+    .form-checkbox label {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentCategory = 'all';
+let templates = [];
+let currentTemplate = null;
+
+// Load templates on page load
+document.addEventListener('DOMContentLoaded', loadTemplates);
+
+// Category filter
+document.querySelectorAll('.category-pill').forEach(pill => {
+    pill.addEventListener('click', function() {
+        document.querySelectorAll('.category-pill').forEach(p => p.classList.remove('active'));
+        this.classList.add('active');
+        currentCategory = this.dataset.category;
+        renderTemplates();
+    });
+});
+
+async function loadTemplates() {
+    try {
+        const response = await fetch('/api/templates');
+        templates = await response.json();
+        renderTemplates();
+    } catch (error) {
+        console.error('Error loading templates:', error);
+    }
+}
+
+function renderTemplates() {
+    const grid = document.getElementById('templatesGrid');
+    const emptyState = document.getElementById('emptyState');
+    
+    let filtered = templates;
+    if (currentCategory !== 'all') {
+        filtered = templates.filter(t => t.category === currentCategory);
+    }
+    
+    if (filtered.length === 0) {
+        grid.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    emptyState.style.display = 'none';
+    grid.innerHTML = filtered.map(t => `
+        <div class="template-card">
+            <div class="template-card-header">
+                <div>
+                    <div class="template-card-title">${escapeHtml(t.name)}</div>
+                    <span class="template-card-category">${t.category}</span>
+                </div>
+                ${t.user_id === null ? '<span style="font-size: 0.75rem; color: var(--accent-info);">System</span>' : ''}
+            </div>
+            <div class="template-card-description">${escapeHtml(t.description || 'No description')}</div>
+            <div class="template-card-preview">${escapeHtml(t.prompt_template)}</div>
+            <div class="template-card-actions">
+                <button class="template-card-btn template-card-btn-primary" onclick="useTemplate('${t.id}')">Use</button>
+                <button class="template-card-btn template-card-btn-secondary" onclick="viewTemplate('${t.id}')">View</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showCreateModal() {
+    document.getElementById('modalTitle').textContent = 'Create Template';
+    document.getElementById('templateForm').reset();
+    document.getElementById('templateModal').style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('templateModal').style.display = 'none';
+}
+
+async function saveTemplate(event) {
+    event.preventDefault();
+    
+    const formData = {
+        name: document.getElementById('templateName').value,
+        category: document.getElementById('templateCategory').value,
+        description: document.getElementById('templateDescription').value,
+        prompt_template: document.getElementById('templatePrompt').value,
+        reference_template: document.getElementById('templateReference').value || null,
+        is_public: document.getElementById('templatePublic').checked
+    };
+    
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.classList.add('btn-loading');
+    saveBtn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            closeModal();
+            loadTemplates();
+        } else {
+            const error = await response.json();
+            alert(error.error || 'Failed to save template');
+        }
+    } catch (error) {
+        alert('Error saving template: ' + error.message);
+    } finally {
+        saveBtn.classList.remove('btn-loading');
+        saveBtn.disabled = false;
+    }
+}
+
+function useTemplate(templateId) {
+    currentTemplate = templates.find(t => t.id === templateId);
+    if (!currentTemplate) return;
+    
+    document.getElementById('useTemplatePreview').textContent = currentTemplate.prompt_template;
+    
+    // Extract variables from template
+    const variables = extractVariables(currentTemplate.prompt_template);
+    const refVariables = currentTemplate.reference_template ? extractVariables(currentTemplate.reference_template) : [];
+    const allVariables = [...new Set([...variables, ...refVariables])];
+    
+    // Generate input fields
+    const inputsContainer = document.getElementById('variableInputs');
+    if (allVariables.length > 0) {
+        inputsContainer.innerHTML = allVariables.map(v => `
+            <div class="form-group">
+                <label class="form-label">${v}</label>
+                <input type="text" class="form-input variable-input" data-var="${v}" placeholder="Enter value for ${v}" oninput="updateGeneratedPrompt()">
+            </div>
+        `).join('');
+    } else {
+        inputsContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem;">No variables to fill</p>';
+    }
+    
+    updateGeneratedPrompt();
+    document.getElementById('useTemplateModal').style.display = 'flex';
+}
+
+function extractVariables(template) {
+    const matches = template.match(/\{(\w+)\}/g) || [];
+    return matches.map(m => m.replace(/[{}]/g, ''));
+}
+
+function updateGeneratedPrompt() {
+    if (!currentTemplate) return;
+    
+    let prompt = currentTemplate.prompt_template;
+    let reference = currentTemplate.reference_template || '';
+    
+    document.querySelectorAll('.variable-input').forEach(input => {
+        const varName = input.dataset.var;
+        const value = input.value || `{${varName}}`;
+        prompt = prompt.replace(new RegExp(`\\{${varName}\\}`, 'g'), value);
+        reference = reference.replace(new RegExp(`\\{${varName}\\}`, 'g'), value);
+    });
+    
+    document.getElementById('generatedPrompt').value = prompt;
+    document.getElementById('generatedReference').value = reference;
+}
+
+function closeUseModal() {
+    document.getElementById('useTemplateModal').style.display = 'none';
+    currentTemplate = null;
+}
+
+function goToPlayground() {
+    const prompt = document.getElementById('generatedPrompt').value;
+    const reference = document.getElementById('generatedReference').value;
+    
+    // Store in sessionStorage and redirect
+    sessionStorage.setItem('templatePrompt', prompt);
+    sessionStorage.setItem('templateReference', reference);
+    window.location.href = '/playground';
+}
+
+function viewTemplate(templateId) {
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return;
+    
+    // Populate form for viewing
+    document.getElementById('modalTitle').textContent = 'View Template';
+    document.getElementById('templateName').value = template.name;
+    document.getElementById('templateCategory').value = template.category;
+    document.getElementById('templateDescription').value = template.description || '';
+    document.getElementById('templatePrompt').value = template.prompt_template;
+    document.getElementById('templateReference').value = template.reference_template || '';
+    document.getElementById('templatePublic').checked = template.is_public;
+    
+    document.getElementById('templateModal').style.display = 'flex';
+}
+</script>
+{% endblock %}
+
