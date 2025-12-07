@@ -78,7 +78,7 @@ flowchart LR
     H --> I[Claim Verification]
     I --> J[Fact Score]
     
-    F --> K[Generate Embeddings]
+    F --> K[TF-IDF Vectorization]
     K --> L[Cosine Similarity]
     L --> M[Semantic Score]
     
@@ -136,7 +136,7 @@ flowchart TB
     end
 
     subgraph semantic["semantic_similarity.py"]
-        embeddings[SentenceTransformer]
+        tfidf[TF-IDF Vectorizer]
         similarity[compute_similarity]
         batch_sim[compute_similarity_batch]
     end
@@ -194,7 +194,7 @@ flowchart TB
     end
 
     subgraph Semantic["Semantic Score (30%)"]
-        SS1[Generate Embeddings]
+        SS1[TF-IDF Vectorization]
         SS2[Cosine Similarity]
         SS3["semantic_score = similarity"]
         SS4["inverted = 1 - semantic_score"]
@@ -390,7 +390,7 @@ mindmap
             Plotly.js
         AI/ML
             OpenRouter API
-            Sentence Transformers
+            TF-IDF Similarity
             OpenAI SDK
             Anthropic SDK
         Database
@@ -424,8 +424,9 @@ mindmap
 ├── llm_client.py             # Multi-provider LLM client
 ├── models.py                 # Data models (EvaluationResult, Batch)
 ├── rule_based_scorer.py      # Pattern and entity analysis
-├── semantic_similarity.py    # Embedding-based similarity
-├── requirements.txt          # Python dependencies
+├── semantic_similarity.py    # TF-IDF based similarity (lightweight)
+├── requirements.txt          # Production dependencies (lightweight)
+├── requirements-dev.txt      # Development dependencies (includes ML models)
 ├── static/
 │   └── css/style.css         # Dashboard styling
 └── templates/
@@ -453,7 +454,11 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 3. **Install dependencies**
 ```bash
+# For production (lightweight, works on free hosting tiers)
 pip install -r requirements.txt
+
+# For local development (includes sentence-transformers for better accuracy)
+pip install -r requirements-dev.txt
 ```
 
 4. **Set up environment variables**
@@ -466,6 +471,7 @@ ANTHROPIC_API_KEY=           # Optional
 DATABASE_URL=sqlite:///./evaluation_results.db
 FLASK_ENV=development
 FLASK_DEBUG=True
+USE_LOCAL_EMBEDDINGS=false   # Set to 'true' for sentence-transformers (requires more RAM)
 ```
 
 Get your OpenRouter API key at: https://openrouter.ai/keys
@@ -519,7 +525,8 @@ print(f"Confidence: {result.confidence}")
 - Supports external fact-check APIs
 
 ### 2. Semantic Similarity (30% weight)
-- Uses sentence-transformers for embeddings
+- Uses lightweight TF-IDF by default (production-ready, no GPU required)
+- Optional: sentence-transformers for higher accuracy (set `USE_LOCAL_EMBEDDINGS=true`)
 - Computes cosine similarity
 - Threshold: 0.7 (configurable)
 
