@@ -9,7 +9,18 @@
 </p>
 
 <p align="center">
-  A comprehensive pipeline for automatically evaluating LLM outputs for hallucinations using fact-check APIs, semantic similarity, and rule-based scoring. Features a professional dashboard showing hallucination rate trends across different prompt versions and models.
+  <em>Version 1.1.0</em>
+</p>
+
+<p align="center">
+  A comprehensive pipeline for automatically evaluating LLM outputs for hallucinations using fact-check APIs, semantic similarity, and rule-based scoring. Features a professional dashboard with user authentication, prompt templates library, and hallucination rate trends across different prompt versions and models.
+</p>
+
+<p align="center">
+  <a href="https://hallucidetect.onrender.com">🚀 Live Demo</a> •
+  <a href="#features">Features</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a>
 </p>
 
 ---
@@ -244,8 +255,17 @@ flowchart TB
 
 ```mermaid
 erDiagram
+    USERS {
+        string id PK
+        string username UK
+        string email UK
+        string password_hash
+        datetime created_at
+    }
+
     EVALUATION_RESULTS {
         string id PK
+        string user_id FK
         text prompt
         text llm_output
         string model_name
@@ -275,6 +295,20 @@ erDiagram
         json average_scores
     }
 
+    PROMPT_TEMPLATES {
+        string id PK
+        string user_id FK
+        string name
+        text prompt_template
+        text description
+        string category
+        text reference_template
+        boolean is_public
+        datetime created_at
+    }
+
+    USERS ||--o{ EVALUATION_RESULTS : owns
+    USERS ||--o{ PROMPT_TEMPLATES : creates
     EVALUATION_BATCHES ||--o{ EVALUATION_RESULTS : contains
 ```
 
@@ -318,13 +352,21 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
+    subgraph Public["Public Pages"]
+        LAND[Landing Page]
+        LOGIN[Login]
+        REG[Register]
+    end
+
     subgraph Sidebar["Sidebar Navigation"]
         direction TB
         DASH[Dashboard]
         PLAY[Playground]
         EVALS[Evaluations]
         ANAL[Analytics]
+        TEMP[Templates]
         SETT[Settings]
+        PROF[Profile]
     end
 
     subgraph Dashboard_Page["Dashboard"]
@@ -336,40 +378,44 @@ flowchart TB
 
     subgraph Playground_Page["Playground"]
         P1[Model Selection]
-        P2[Prompt Input]
-        P3[Reference Input]
-        P4[Evaluation Results]
-        P5[Score Breakdown]
+        P2[Template Selection]
+        P3[Prompt Input]
+        P4[Reference Input]
+        P5[Evaluation Results]
+        P6[Score Breakdown]
     end
 
     subgraph Evaluations_Page["Evaluations"]
         E1[Search & Filters]
         E2[Results Table]
-        E3[Pagination]
+        E3[CSV Import Modal]
         E4[Detail Modal]
         E5[CSV Export]
     end
 
-    subgraph Analytics_Page["Analytics"]
-        A1[Time Range Filter]
-        A2[Hallucination Trends]
-        A3[Model Comparison]
-        A4[Score Distribution]
-        A5[Summary Table]
+    subgraph Templates_Page["Templates"]
+        T1[Pre-built Templates]
+        T2[Custom Templates]
+        T3[Category Filter]
+        T4[Use Template Modal]
     end
 
-    subgraph Settings_Page["Settings"]
-        S1[API Configuration]
-        S2[Threshold Settings]
-        S3[Database Info]
-        S4[System Status]
+    subgraph Profile_Page["Profile"]
+        PR1[User Details]
+        PR2[Account Stats]
+        PR3[Sign Out]
     end
 
+    LAND --> LOGIN
+    LAND --> REG
+    LOGIN --> DASH
+    REG --> DASH
+    
     DASH --> Dashboard_Page
     PLAY --> Playground_Page
     EVALS --> Evaluations_Page
-    ANAL --> Analytics_Page
-    SETT --> Settings_Page
+    TEMP --> Templates_Page
+    PROF --> Profile_Page
 ```
 
 ---
@@ -382,19 +428,28 @@ mindmap
     root((HalluciDetect))
         Backend
             Flask
+            Flask-Login
             SQLAlchemy
+            Gunicorn
             Python 3.9+
         Frontend
             HTML5/CSS3
             JavaScript
             Plotly.js
+            CSS Animations
         AI/ML
             OpenRouter API
             TF-IDF Similarity
+            Wikipedia API
             OpenAI SDK
             Anthropic SDK
         Database
             SQLite
+            User Management
+        Security
+            Password Hashing
+            Session Management
+            Protected Routes
         Evaluation
             Fact Checking
             Semantic Similarity
@@ -405,22 +460,35 @@ mindmap
 
 ## Features
 
+### Core Evaluation
 - **Multi-method Evaluation**: Combines fact-checking, semantic similarity, and rule-based scoring
 - **LLM Integration**: Supports OpenAI, Anthropic, and 100+ models via OpenRouter
+- **Wikipedia API Integration**: Enhanced fact verification using Wikipedia knowledge base
 - **Batch Evaluation**: Evaluate multiple test cases at once
 - **Trend Analysis**: Track hallucination rates across prompt versions and models
-- **Interactive Dashboard**: Professional dark-themed web interface
-- **Database Storage**: SQLite database for persistent storage
+
+### User Experience
+- **User Authentication**: Secure registration, login, and session management with Flask-Login
+- **User Profiles**: Personal dashboard with account statistics and evaluation history
+- **Prompt Templates Library**: Pre-built and custom templates for common evaluation scenarios
+- **CSV Import/Export**: Bulk import test cases and export evaluation results
+- **Professional Landing Page**: Animated, interactive introduction with live demo
+
+### Technical
+- **Interactive Dashboard**: Professional dark-themed web interface with Plotly.js charts
+- **Protected Routes**: All API endpoints secured with authentication
+- **Open Redirect Prevention**: Security hardened authentication flow
+- **Database Storage**: SQLite database with user-scoped data isolation
 
 ## Project Structure
 
 ```
 .
-├── app.py                    # Flask web application with routes
+├── app.py                    # Flask web application with routes & auth
 ├── config.py                 # Configuration settings
-├── database.py               # Database models and CRUD operations
+├── database.py               # Database models, CRUD, user management
 ├── evaluator.py              # Main evaluation pipeline orchestrator
-├── fact_checker.py           # Fact extraction and verification
+├── fact_checker.py           # Fact extraction, verification, Wikipedia API
 ├── llm_client.py             # Multi-provider LLM client
 ├── models.py                 # Data models (EvaluationResult, Batch)
 ├── rule_based_scorer.py      # Pattern and entity analysis
@@ -428,13 +496,20 @@ mindmap
 ├── requirements.txt          # Production dependencies (lightweight)
 ├── requirements-dev.txt      # Development dependencies (includes ML models)
 ├── static/
-│   └── css/style.css         # Dashboard styling
+│   ├── css/style.css         # Dashboard styling
+│   └── favicon.ico           # Site favicon
 └── templates/
+    ├── auth/
+    │   ├── login.html        # User login page
+    │   └── register.html     # User registration page
     ├── base.html             # Shared layout with sidebar
+    ├── landing.html          # Public landing page with animations
     ├── dashboard.html        # Overview with metrics
     ├── playground.html       # Single evaluation interface
-    ├── evaluations.html      # Results history table
+    ├── evaluations.html      # Results history with CSV import
     ├── analytics.html        # Trend charts
+    ├── templates.html        # Prompt templates library
+    ├── profile.html          # User profile page
     └── settings.html         # Configuration panel
 ```
 
@@ -469,12 +544,15 @@ OPENROUTER_API_KEY=your_openrouter_api_key
 OPENAI_API_KEY=              # Optional
 ANTHROPIC_API_KEY=           # Optional
 DATABASE_URL=sqlite:///./evaluation_results.db
+SECRET_KEY=your-secret-key-change-in-production
 FLASK_ENV=development
 FLASK_DEBUG=True
 USE_LOCAL_EMBEDDINGS=false   # Set to 'true' for sentence-transformers (requires more RAM)
 ```
 
 Get your OpenRouter API key at: https://openrouter.ai/keys
+
+> **Note**: For production, always use a strong, unique `SECRET_KEY` for session security.
 
 ## Usage
 
@@ -508,14 +586,24 @@ print(f"Confidence: {result.confidence}")
 
 ### REST API Endpoints
 
+All API endpoints (except `/api/models` and `/health`) require authentication.
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/evaluate` | Evaluate a single prompt |
 | POST | `/api/evaluate/batch` | Evaluate multiple test cases |
-| GET | `/api/results` | Get evaluation results |
+| POST | `/api/evaluate/csv` | Evaluate from uploaded CSV file |
+| GET | `/api/results` | Get evaluation results for current user |
+| GET | `/api/results/export` | Export results as CSV |
 | GET | `/api/batches` | Get batch evaluations |
 | GET | `/api/trends` | Get hallucination trends |
-| GET | `/api/models` | Get available models |
+| GET | `/api/models` | Get available models (public) |
+| GET | `/api/templates` | Get prompt templates |
+| POST | `/api/templates` | Create new template |
+| GET | `/api/templates/<id>` | Get specific template |
+| DELETE | `/api/templates/<id>` | Delete a template |
+| GET | `/api/user` | Get current user info |
+| GET | `/health` | Health check endpoint (public) |
 
 ## Evaluation Methods
 
@@ -544,10 +632,13 @@ hallucination_score = (fact_inverted × 0.4) + (semantic_inverted × 0.3) + (rul
 
 | Page | Features |
 |------|----------|
+| **Landing** | Animated hero, live demo, feature showcase, FAQ |
 | **Dashboard** | Metrics cards, trend charts, recent evaluations |
-| **Playground** | Interactive evaluation with real-time results |
-| **Evaluations** | Searchable history, filters, CSV export |
+| **Playground** | Interactive evaluation with real-time results, template selection |
+| **Evaluations** | Searchable history, filters, CSV import/export |
 | **Analytics** | Model comparison, time-series trends |
+| **Templates** | Pre-built prompts, custom template creation |
+| **Profile** | User details, account statistics, sign out |
 | **Settings** | API config, thresholds, database info |
 
 ## Configuration
@@ -565,15 +656,29 @@ hallucination_score = (fact_inverted × 0.4) + (semantic_inverted × 0.3) + (rul
 ```env
 OPENROUTER_API_KEY=your_key
 DATABASE_URL=sqlite:///./evaluation_results.db
+SECRET_KEY=generate-a-strong-secret-key
 FLASK_ENV=production
 FLASK_DEBUG=False
 ```
 
 ### Platforms
+- **Render** (Recommended): Connect GitHub repo, auto-deploys on push
 - **Railway**: `railway up`
-- **Render**: Connect GitHub repo
 - **Fly.io**: `fly launch`
 - **Heroku**: `git push heroku main`
+
+### Live Instance
+The application is deployed at: **https://hallucidetect.onrender.com**
+
+## Security
+
+HalluciDetect implements several security best practices:
+
+- **Password Hashing**: User passwords are hashed using PBKDF2-SHA256
+- **Session Management**: Secure session handling with Flask-Login
+- **Protected Routes**: All sensitive endpoints require authentication
+- **Open Redirect Prevention**: Login redirects are validated to prevent phishing
+- **User Data Isolation**: Users can only access their own evaluations and templates
 
 ## Contributing
 
@@ -596,11 +701,31 @@ Built from scratch as a comprehensive LLM evaluation and hallucination detection
 
 ---
 
+## Changelog
+
+### v1.1.0 (December 2025)
+- **User Authentication**: Added registration, login, logout with Flask-Login
+- **User Profiles**: Personal profile page with account statistics
+- **Prompt Templates**: Pre-built and custom template library
+- **CSV Operations**: Bulk import test cases, export evaluation results
+- **Wikipedia API**: Enhanced fact verification using Wikipedia
+- **Landing Page**: Professional animated landing page with live demo
+- **Security**: Protected routes, open redirect prevention
+- **UX Improvements**: Favicon, flash messages, loading spinners
+
+### v1.0.0 (December 2025)
+- Initial release with multi-method hallucination evaluation
+- Support for OpenAI, Anthropic, and OpenRouter models
+- Professional dark-themed dashboard
+- Batch evaluation and trend analysis
+
+---
+
 ## License
 
 MIT License
 
-Copyright (c) 2024 Jyotishman Das
+Copyright (c) 2025 Jyotishman Das
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

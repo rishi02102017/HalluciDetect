@@ -414,6 +414,7 @@ def create_template():
     return jsonify(template.to_dict())
 
 @app.route('/api/templates/<template_id>', methods=['GET'])
+@login_required
 def get_template(template_id):
     """Get a specific template."""
     template = db.get_template_by_id(template_id)
