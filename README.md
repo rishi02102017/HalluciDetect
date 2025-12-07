@@ -442,8 +442,8 @@ mindmap
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/rishi02102017/Automated-LLM-Evaluation-and-Hallucination-Detector.git
-cd Automated-LLM-Evaluation-and-Hallucination-Detector
+git clone https://github.com/rishi02102017/HalluciDetect.git
+cd HalluciDetect
 ```
 
 2. **Create a virtual environment**
