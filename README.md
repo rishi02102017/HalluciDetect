@@ -697,8 +697,6 @@ This project demonstrates:
 
 Built from scratch as a comprehensive LLM evaluation and hallucination detection platform.
 
-- GitHub: [@rishi02102017](https://github.com/rishi02102017)
-
 ---
 
 ## Changelog
