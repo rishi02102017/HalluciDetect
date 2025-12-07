@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - HalluciDetect{% endblock %}
+{% block header_title %}Dashboard{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('playground') }}" class="btn btn-primary">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    New Evaluation
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Metrics Grid -->
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-header">
+            <span class="metric-label">Total Evaluations</span>
+            <div class="metric-icon primary">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+            </div>
+        </div>
+        <div class="metric-value" id="metric-total">--</div>
+        <div class="metric-change positive" id="metric-total-change">Loading...</div>
+    </div>
+    
+    <div class="metric-card">
+        <div class="metric-header">
+            <span class="metric-label">Hallucination Rate</span>
+            <div class="metric-icon danger">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+            </div>
+        </div>
+        <div class="metric-value" id="metric-rate">--</div>
+        <div class="metric-change" id="metric-rate-change">Loading...</div>
+    </div>
+    
+    <div class="metric-card">
+        <div class="metric-header">
+            <span class="metric-label">Average Score</span>
+            <div class="metric-icon success">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+            </div>
+        </div>
+        <div class="metric-value" id="metric-avg">--</div>
+        <div class="metric-change" id="metric-avg-change">Loading...</div>
+    </div>
+    
+    <div class="metric-card">
+        <div class="metric-header">
+            <span class="metric-label">Models Tested</span>
+            <div class="metric-icon info">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>
+                    <rect x="9" y="9" width="6" height="6"/>
+                    <line x1="9" y1="1" x2="9" y2="4"/>
+                    <line x1="15" y1="1" x2="15" y2="4"/>
+                    <line x1="9" y1="20" x2="9" y2="23"/>
+                    <line x1="15" y1="20" x2="15" y2="23"/>
+                    <line x1="20" y1="9" x2="23" y2="9"/>
+                    <line x1="20" y1="14" x2="23" y2="14"/>
+                    <line x1="1" y1="9" x2="4" y2="9"/>
+                    <line x1="1" y1="14" x2="4" y2="14"/>
+                </svg>
+            </div>
+        </div>
+        <div class="metric-value" id="metric-models">--</div>
+        <div class="metric-change" id="metric-models-change">Unique models</div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid-2 mb-8">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Hallucination Trends</h3>
+        </div>
+        <div class="card-body">
+            <div id="trend-chart" class="chart-container"></div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Score Distribution</h3>
+        </div>
+        <div class="card-body">
+            <div id="distribution-chart" class="chart-container"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Evaluations -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Recent Evaluations</h3>
+        <a href="{{ url_for('evaluations') }}" class="btn btn-ghost btn-sm">View All</a>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Prompt</th>
+                        <th>Model</th>
+                        <th>Version</th>
+                        <th>Score</th>
+                        <th>Status</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody id="recent-results">
+                    <tr>
+                        <td colspan="6" class="text-center text-muted" style="padding: 40px;">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+});
+
+async function loadDashboardData() {
+    try {
+        // Load results
+        const resultsResponse = await fetch('/api/results?limit=100');
+        const results = await resultsResponse.json();
+        
+        // Calculate metrics
+        const totalEvaluations = results.length;
+        const hallucinations = results.filter(r => r.is_hallucination).length;
+        const hallucinationRate = totalEvaluations > 0 ? (hallucinations / totalEvaluations * 100).toFixed(1) : 0;
+        const avgScore = totalEvaluations > 0 
+            ? (results.reduce((sum, r) => sum + (1 - r.overall_hallucination_score), 0) / totalEvaluations * 100).toFixed(1)
+            : 0;
+        const uniqueModels = new Set(results.map(r => r.model_name)).size;
+        
+        // Update metrics
+        document.getElementById('metric-total').textContent = totalEvaluations;
+        document.getElementById('metric-total-change').textContent = `${hallucinations} hallucinations detected`;
+        document.getElementById('metric-total-change').className = 'metric-change';
+        
+        document.getElementById('metric-rate').textContent = hallucinationRate + '%';
+        document.getElementById('metric-rate-change').textContent = hallucinationRate > 30 ? 'Above threshold' : 'Within acceptable range';
+        document.getElementById('metric-rate-change').className = 'metric-change ' + (hallucinationRate > 30 ? 'negative' : 'positive');
+        
+        document.getElementById('metric-avg').textContent = avgScore + '%';
+        document.getElementById('metric-avg-change').textContent = 'Confidence score';
+        document.getElementById('metric-avg-change').className = 'metric-change';
+        
+        document.getElementById('metric-models').textContent = uniqueModels;
+        
+        // Render recent results table
+        renderRecentResults(results.slice(0, 10));
+        
+        // Render charts
+        renderTrendChart(results);
+        renderDistributionChart(results);
+        
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+    }
+}
+
+function renderRecentResults(results) {
+    const tbody = document.getElementById('recent-results');
+    
+    if (results.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-muted" style="padding: 40px;">
+                    No evaluations yet. Run your first evaluation in the Playground.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = results.map(r => {
+        const score = ((1 - r.overall_hallucination_score) * 100).toFixed(1);
+        const scoreClass = r.overall_hallucination_score > 0.5 ? 'high' : r.overall_hallucination_score > 0.3 ? 'medium' : 'low';
+        const statusBadge = r.is_hallucination 
+            ? '<span class="badge badge-danger">Hallucination</span>'
+            : '<span class="badge badge-success">Verified</span>';
+        const timestamp = new Date(r.timestamp).toLocaleString();
+        const truncatedPrompt = r.prompt.length > 50 ? r.prompt.substring(0, 50) + '...' : r.prompt;
+        
+        return `
+            <tr>
+                <td><span class="mono" style="font-size: 0.8125rem;">${truncatedPrompt}</span></td>
+                <td><span class="badge badge-neutral">${r.model_name}</span></td>
+                <td>${r.prompt_version}</td>
+                <td>
+                    <div class="score-display">
+                        <div class="score-bar">
+                            <div class="score-bar-fill ${scoreClass}" style="width: ${score}%"></div>
+                        </div>
+                        <span class="score-value">${score}%</span>
+                    </div>
+                </td>
+                <td>${statusBadge}</td>
+                <td style="color: var(--text-muted); font-size: 0.8125rem;">${timestamp}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderTrendChart(results) {
+    if (results.length === 0) {
+        document.getElementById('trend-chart').innerHTML = '<div class="empty-state"><p class="text-muted">No data available</p></div>';
+        return;
+    }
+    
+    // Group by date
+    const byDate = {};
+    results.forEach(r => {
+        const date = new Date(r.timestamp).toLocaleDateString();
+        if (!byDate[date]) {
+            byDate[date] = { total: 0, hallucinations: 0 };
+        }
+        byDate[date].total++;
+        if (r.is_hallucination) byDate[date].hallucinations++;
+    });
+    
+    const dates = Object.keys(byDate).sort();
+    const rates = dates.map(d => (byDate[d].hallucinations / byDate[d].total * 100).toFixed(1));
+    
+    const trace = {
+        x: dates,
+        y: rates,
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: '#6366f1', width: 2 },
+        marker: { size: 6, color: '#6366f1' },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(99, 102, 241, 0.1)'
+    };
+    
+    const layout = {
+        margin: { t: 20, r: 20, b: 40, l: 50 },
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        font: { color: '#94a3b8', family: 'Inter' },
+        xaxis: { 
+            gridcolor: '#2a2a3a',
+            linecolor: '#2a2a3a'
+        },
+        yaxis: { 
+            gridcolor: '#2a2a3a',
+            linecolor: '#2a2a3a',
+            title: 'Hallucination Rate (%)'
+        }
+    };
+    
+    Plotly.newPlot('trend-chart', [trace], layout, { responsive: true, displayModeBar: false });
+}
+
+function renderDistributionChart(results) {
+    if (results.length === 0) {
+        document.getElementById('distribution-chart').innerHTML = '<div class="empty-state"><p class="text-muted">No data available</p></div>';
+        return;
+    }
+    
+    const scores = results.map(r => ((1 - r.overall_hallucination_score) * 100).toFixed(0));
+    
+    const trace = {
+        x: scores,
+        type: 'histogram',
+        marker: { 
+            color: '#6366f1',
+            line: { color: '#8b5cf6', width: 1 }
+        },
+        nbinsx: 20
+    };
+    
+    const layout = {
+        margin: { t: 20, r: 20, b: 40, l: 50 },
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        font: { color: '#94a3b8', family: 'Inter' },
+        xaxis: { 
+            gridcolor: '#2a2a3a',
+            linecolor: '#2a2a3a',
+            title: 'Confidence Score (%)'
+        },
+        yaxis: { 
+            gridcolor: '#2a2a3a',
+            linecolor: '#2a2a3a',
+            title: 'Count'
+        },
+        bargap: 0.1
+    };
+    
+    Plotly.newPlot('distribution-chart', [trace], layout, { responsive: true, displayModeBar: false });
+}
+</script>
+{% endblock %}
+

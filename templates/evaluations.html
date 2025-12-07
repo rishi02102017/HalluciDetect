@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block title %}Evaluations - HalluciDetect{% endblock %}
+{% block header_title %}Evaluations{% endblock %}
+
+{% block header_actions %}
+<button class="btn btn-secondary" id="export-btn">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Export
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="filter-bar">
+    <div class="search-box" style="flex: 1; max-width: 400px;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" class="form-input" id="search-input" placeholder="Search prompts...">
+    </div>
+    
+    <select class="form-select" id="filter-model">
+        <option value="">All Models</option>
+    </select>
+    
+    <select class="form-select" id="filter-version">
+        <option value="">All Versions</option>
+    </select>
+    
+    <select class="form-select" id="filter-status">
+        <option value="">All Status</option>
+        <option value="hallucination">Hallucination</option>
+        <option value="verified">Verified</option>
+    </select>
+</div>
+
+<!-- Results Table -->
+<div class="card">
+    <div class="card-body" style="padding: 0;">
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th style="width: 35%;">Prompt</th>
+                        <th>Model</th>
+                        <th>Version</th>
+                        <th>Confidence</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th style="width: 80px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="evaluations-table">
+                    <tr>
+                        <td colspan="7" class="text-center text-muted" style="padding: 60px;">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="pagination" style="padding: 16px 24px; border-top: 1px solid var(--border-color);">
+            <div class="pagination-info" id="pagination-info">Showing 0 results</div>
+            <div class="pagination-buttons">
+                <button class="btn btn-secondary btn-sm" id="prev-btn" disabled>Previous</button>
+                <button class="btn btn-secondary btn-sm" id="next-btn" disabled>Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div id="detail-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center;">
+    <div class="card" style="width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto;">
+        <div class="card-header">
+            <h3 class="card-title">Evaluation Details</h3>
+            <button class="btn btn-ghost btn-sm" onclick="closeModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="card-body" id="modal-content"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allResults = [];
+let filteredResults = [];
+let currentPage = 0;
+const pageSize = 20;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadEvaluations();
+    setupFilters();
+});
+
+async function loadEvaluations() {
+    try {
+        const response = await fetch('/api/results?limit=500');
+        allResults = await response.json();
+        
+        // Populate filter options
+        populateFilters();
+        
+        // Apply filters and render
+        applyFilters();
+    } catch (error) {
+        console.error('Error loading evaluations:', error);
+    }
+}
+
+function populateFilters() {
+    const models = [...new Set(allResults.map(r => r.model_name))];
+    const versions = [...new Set(allResults.map(r => r.prompt_version))];
+    
+    const modelSelect = document.getElementById('filter-model');
+    models.forEach(m => {
+        const option = document.createElement('option');
+        option.value = m;
+        option.textContent = m;
+        modelSelect.appendChild(option);
+    });
+    
+    const versionSelect = document.getElementById('filter-version');
+    versions.forEach(v => {
+        const option = document.createElement('option');
+        option.value = v;
+        option.textContent = v;
+        versionSelect.appendChild(option);
+    });
+}
+
+function setupFilters() {
+    document.getElementById('search-input').addEventListener('input', debounce(applyFilters, 300));
+    document.getElementById('filter-model').addEventListener('change', applyFilters);
+    document.getElementById('filter-version').addEventListener('change', applyFilters);
+    document.getElementById('filter-status').addEventListener('change', applyFilters);
+    document.getElementById('prev-btn').addEventListener('click', () => changePage(-1));
+    document.getElementById('next-btn').addEventListener('click', () => changePage(1));
+}
+
+function applyFilters() {
+    const search = document.getElementById('search-input').value.toLowerCase();
+    const model = document.getElementById('filter-model').value;
+    const version = document.getElementById('filter-version').value;
+    const status = document.getElementById('filter-status').value;
+    
+    filteredResults = allResults.filter(r => {
+        if (search && !r.prompt.toLowerCase().includes(search) && !r.llm_output.toLowerCase().includes(search)) return false;
+        if (model && r.model_name !== model) return false;
+        if (version && r.prompt_version !== version) return false;
+        if (status === 'hallucination' && !r.is_hallucination) return false;
+        if (status === 'verified' && r.is_hallucination) return false;
+        return true;
+    });
+    
+    currentPage = 0;
+    renderTable();
+}
+
+function renderTable() {
+    const tbody = document.getElementById('evaluations-table');
+    const start = currentPage * pageSize;
+    const end = start + pageSize;
+    const pageResults = filteredResults.slice(start, end);
+    
+    if (pageResults.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted" style="padding: 60px;">
+                    No evaluations found matching your filters.
+                </td>
+            </tr>
+        `;
+        updatePagination();
+        return;
+    }
+    
+    tbody.innerHTML = pageResults.map(r => {
+        const confidence = ((1 - r.overall_hallucination_score) * 100).toFixed(1);
+        const scoreClass = r.overall_hallucination_score > 0.5 ? 'high' : r.overall_hallucination_score > 0.3 ? 'medium' : 'low';
+        const statusBadge = r.is_hallucination 
+            ? '<span class="badge badge-danger">Hallucination</span>'
+            : '<span class="badge badge-success">Verified</span>';
+        const date = new Date(r.timestamp).toLocaleDateString();
+        const truncatedPrompt = r.prompt.length > 60 ? r.prompt.substring(0, 60) + '...' : r.prompt;
+        
+        return `
+            <tr>
+                <td>
+                    <div style="font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">${truncatedPrompt}</div>
+                    <div class="mono" style="font-size: 0.75rem; color: var(--text-muted);">${r.id.substring(0, 8)}...</div>
+                </td>
+                <td><span class="badge badge-neutral">${r.model_name}</span></td>
+                <td>${r.prompt_version}</td>
+                <td>
+                    <div class="score-display" style="max-width: 120px;">
+                        <div class="score-bar">
+                            <div class="score-bar-fill ${scoreClass}" style="width: ${confidence}%"></div>
+                        </div>
+                        <span class="score-value" style="font-size: 0.8125rem;">${confidence}%</span>
+                    </div>
+                </td>
+                <td>${statusBadge}</td>
+                <td style="color: var(--text-muted); font-size: 0.8125rem;">${date}</td>
+                <td>
+                    <button class="btn btn-ghost btn-sm" onclick="showDetails('${r.id}')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    
+    updatePagination();
+}
+
+function updatePagination() {
+    const total = filteredResults.length;
+    const start = currentPage * pageSize + 1;
+    const end = Math.min((currentPage + 1) * pageSize, total);
+    
+    document.getElementById('pagination-info').textContent = total > 0 
+        ? `Showing ${start}-${end} of ${total} results`
+        : 'No results';
+    
+    document.getElementById('prev-btn').disabled = currentPage === 0;
+    document.getElementById('next-btn').disabled = end >= total;
+}
+
+function changePage(delta) {
+    currentPage += delta;
+    renderTable();
+}
+
+function showDetails(id) {
+    const result = allResults.find(r => r.id === id);
+    if (!result) return;
+    
+    const modal = document.getElementById('detail-modal');
+    const content = document.getElementById('modal-content');
+    
+    const confidence = ((1 - result.overall_hallucination_score) * 100).toFixed(1);
+    const statusBadge = result.is_hallucination 
+        ? '<span class="badge badge-danger">Hallucination Detected</span>'
+        : '<span class="badge badge-success">Verified</span>';
+    
+    content.innerHTML = `
+        <div style="margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+                ${statusBadge}
+                <span class="badge badge-neutral">${result.model_name}</span>
+                <span style="color: var(--text-muted); font-size: 0.875rem;">${new Date(result.timestamp).toLocaleString()}</span>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 24px;">
+            <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">Prompt</div>
+            <div style="background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; font-size: 0.875rem;">${result.prompt}</div>
+        </div>
+        
+        <div style="margin-bottom: 24px;">
+            <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">LLM Output</div>
+            <div style="background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; font-size: 0.875rem; line-height: 1.6;">${result.llm_output}</div>
+        </div>
+        
+        <div style="margin-bottom: 24px;">
+            <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;">Scores</div>
+            <div class="scores-grid">
+                <div class="score-item">
+                    <div class="score-item-label">Confidence</div>
+                    <div class="score-item-value" style="color: ${confidence > 70 ? 'var(--accent-success)' : confidence > 40 ? 'var(--accent-warning)' : 'var(--accent-danger)'};">${confidence}%</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-item-label">Hallucination Score</div>
+                    <div class="score-item-value">${(result.overall_hallucination_score * 100).toFixed(1)}%</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-item-label">Semantic Similarity</div>
+                    <div class="score-item-value">${(result.semantic_similarity_score * 100).toFixed(1)}%</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-item-label">Fact Check Score</div>
+                    <div class="score-item-value">${(result.fact_check_score * 100).toFixed(1)}%</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${result.id}</div>
+    `;
+    
+    modal.style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('detail-modal').style.display = 'none';
+}
+
+document.getElementById('detail-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+document.getElementById('export-btn').addEventListener('click', function() {
+    const csv = [
+        ['ID', 'Prompt', 'Model', 'Version', 'Confidence', 'Is Hallucination', 'Timestamp'].join(','),
+        ...filteredResults.map(r => [
+            r.id,
+            '"' + r.prompt.replace(/"/g, '""') + '"',
+            r.model_name,
+            r.prompt_version,
+            ((1 - r.overall_hallucination_score) * 100).toFixed(1),
+            r.is_hallucination,
+            r.timestamp
+        ].join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'evaluations.csv';
+    a.click();
+});
+</script>
+{% endblock %}
+

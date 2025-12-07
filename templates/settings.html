@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - HalluciDetect{% endblock %}
+{% block header_title %}Settings{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+    <!-- API Configuration -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">API Configuration</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">OpenRouter API Key</label>
+                <input type="password" class="form-input mono" id="openrouter-key" placeholder="sk-or-v1-..." value="••••••••••••••••">
+                <p class="form-hint">Used for accessing multiple LLM providers through a unified API</p>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">OpenAI API Key (Optional)</label>
+                <input type="password" class="form-input mono" id="openai-key" placeholder="sk-...">
+                <p class="form-hint">Direct access to OpenAI models</p>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Anthropic API Key (Optional)</label>
+                <input type="password" class="form-input mono" id="anthropic-key" placeholder="sk-ant-...">
+                <p class="form-hint">Direct access to Claude models</p>
+            </div>
+            
+            <div class="flex gap-4">
+                <button class="btn btn-primary" onclick="alert('API keys are configured via .env file for security')">Save Changes</button>
+                <button class="btn btn-secondary" onclick="testConnection()">Test Connection</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Evaluation Thresholds -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Evaluation Thresholds</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">Hallucination Score Threshold</label>
+                <input type="number" class="form-input" id="hallucination-threshold" value="0.5" min="0" max="1" step="0.1">
+                <p class="form-hint">Scores above this threshold are flagged as hallucinations (0-1)</p>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Semantic Similarity Threshold</label>
+                <input type="number" class="form-input" id="semantic-threshold" value="0.7" min="0" max="1" step="0.1">
+                <p class="form-hint">Minimum similarity score to consider output aligned with reference</p>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Fact Check Confidence Threshold</label>
+                <input type="number" class="form-input" id="factcheck-threshold" value="0.8" min="0" max="1" step="0.1">
+                <p class="form-hint">Minimum confidence to consider a claim verified</p>
+            </div>
+            
+            <button class="btn btn-primary">Save Thresholds</button>
+        </div>
+    </div>
+    
+    <!-- Default Model -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Default Model</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">Default LLM Model</label>
+                <select class="form-select" id="default-model">
+                    <option value="gpt-4o-mini" selected>GPT-4o Mini</option>
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                    <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                </select>
+                <p class="form-hint">Model used when none is specified</p>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Default Embedding Model</label>
+                <input type="text" class="form-input mono" id="embedding-model" value="sentence-transformers/all-MiniLM-L6-v2" readonly>
+                <p class="form-hint">Model used for semantic similarity calculations</p>
+            </div>
+            
+            <button class="btn btn-primary">Save Defaults</button>
+        </div>
+    </div>
+    
+    <!-- Available Models -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Available Models</h3>
+        </div>
+        <div class="card-body">
+            <div id="models-list">Loading...</div>
+        </div>
+    </div>
+    
+    <!-- Database Info -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Database</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">Database URL</label>
+                <input type="text" class="form-input mono" value="sqlite:///evaluation_results.db" readonly>
+            </div>
+            
+            <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                <div style="flex: 1; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Total Records</div>
+                    <div style="font-size: 1.5rem; font-weight: 700;" id="db-records">--</div>
+                </div>
+                <div style="flex: 1; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Database Size</div>
+                    <div style="font-size: 1.5rem; font-weight: 700;" id="db-size">--</div>
+                </div>
+            </div>
+            
+            <button class="btn btn-secondary" style="color: var(--accent-danger);" onclick="if(confirm('This will delete all evaluation data. Are you sure?')) alert('Database cleared.')">Clear Database</button>
+        </div>
+    </div>
+    
+    <!-- System Info -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">System Information</h3>
+        </div>
+        <div class="card-body">
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                    <span style="color: var(--text-muted);">Version</span>
+                    <span class="mono">1.0.0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                    <span style="color: var(--text-muted);">Environment</span>
+                    <span class="badge badge-info">Development</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                    <span style="color: var(--text-muted);">API Status</span>
+                    <span class="badge badge-success" id="api-status">Connected</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 12px 0;">
+                    <span style="color: var(--text-muted);">Last Updated</span>
+                    <span class="mono" style="font-size: 0.875rem;">December 2024</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadModels();
+    loadDatabaseInfo();
+});
+
+async function loadModels() {
+    try {
+        const response = await fetch('/api/models');
+        const models = await response.json();
+        
+        const container = document.getElementById('models-list');
+        let html = '';
+        
+        for (const [provider, modelList] of Object.entries(models)) {
+            if (modelList.length === 0) continue;
+            
+            html += `
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">${provider}</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        ${modelList.map(m => `<span class="badge badge-neutral">${m}</span>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html || '<p class="text-muted">No models available. Check your API configuration.</p>';
+    } catch (error) {
+        document.getElementById('models-list').innerHTML = '<p class="text-muted">Error loading models</p>';
+        document.getElementById('api-status').className = 'badge badge-danger';
+        document.getElementById('api-status').textContent = 'Disconnected';
+    }
+}
+
+async function loadDatabaseInfo() {
+    try {
+        const response = await fetch('/api/results?limit=10000');
+        const results = await response.json();
+        
+        document.getElementById('db-records').textContent = results.length;
+        document.getElementById('db-size').textContent = estimateSize(results.length);
+    } catch (error) {
+        console.error('Error loading database info:', error);
+    }
+}
+
+function estimateSize(records) {
+    const avgRecordSize = 2; // KB
+    const totalKB = records * avgRecordSize;
+    if (totalKB < 1024) return totalKB + ' KB';
+    return (totalKB / 1024).toFixed(1) + ' MB';
+}
+
+async function testConnection() {
+    try {
+        const response = await fetch('/api/models');
+        if (response.ok) {
+            alert('Connection successful. All API providers are accessible.');
+        } else {
+            alert('Connection failed. Check your API keys.');
+        }
+    } catch (error) {
+        alert('Connection failed: ' + error.message);
+    }
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - HalluciDetect{% endblock %}
+{% block header_title %}Analytics{% endblock %}
+
+{% block content %}
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <select class="form-select" id="filter-model">
+        <option value="">All Models</option>
+    </select>
+    
+    <select class="form-select" id="filter-version">
+        <option value="">All Versions</option>
+    </select>
+    
+    <select class="form-select" id="filter-timerange">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+        <option value="all">All time</option>
+    </select>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="grid-2 mb-8">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Hallucination Rate Over Time</h3>
+        </div>
+        <div class="card-body">
+            <div id="trend-chart" class="chart-container"></div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Model Comparison</h3>
+        </div>
+        <div class="card-body">
+            <div id="model-chart" class="chart-container"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 2 -->
+<div class="grid-2 mb-8">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Score Distribution by Model</h3>
+        </div>
+        <div class="card-body">
+            <div id="distribution-chart" class="chart-container"></div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Evaluations by Version</h3>
+        </div>
+        <div class="card-body">
+            <div id="version-chart" class="chart-container"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Performance Summary</h3>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Evaluations</th>
+                        <th>Hallucination Rate</th>
+                        <th>Avg Confidence</th>
+                        <th>Avg Semantic Score</th>
+                        <th>Trend</th>
+                    </tr>
+                </thead>
+                <tbody id="summary-table">
+                    <tr>
+                        <td colspan="6" class="text-center text-muted" style="padding: 40px;">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allResults = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadAnalytics();
+    setupFilters();
+});
+
+async function loadAnalytics() {
+    try {
+        const response = await fetch('/api/results?limit=1000');
+        allResults = await response.json();
+        
+        populateFilters();
+        renderCharts();
+    } catch (error) {
+        console.error('Error loading analytics:', error);
+    }
+}
+
+function populateFilters() {
+    const models = [...new Set(allResults.map(r => r.model_name))];
+    const versions = [...new Set(allResults.map(r => r.prompt_version))];
+    
+    const modelSelect = document.getElementById('filter-model');
+    models.forEach(m => {
+        const option = document.createElement('option');
+        option.value = m;
+        option.textContent = m;
+        modelSelect.appendChild(option);
+    });
+    
+    const versionSelect = document.getElementById('filter-version');
+    versions.forEach(v => {
+        const option = document.createElement('option');
+        option.value = v;
+        option.textContent = v;
+        versionSelect.appendChild(option);
+    });
+}
+
+function setupFilters() {
+    document.getElementById('filter-model').addEventListener('change', renderCharts);
+    document.getElementById('filter-version').addEventListener('change', renderCharts);
+    document.getElementById('filter-timerange').addEventListener('change', renderCharts);
+}
+
+function getFilteredResults() {
+    const model = document.getElementById('filter-model').value;
+    const version = document.getElementById('filter-version').value;
+    const timerange = document.getElementById('filter-timerange').value;
+    
+    let results = allResults;
+    
+    if (model) results = results.filter(r => r.model_name === model);
+    if (version) results = results.filter(r => r.prompt_version === version);
+    
+    if (timerange !== 'all') {
+        const days = parseInt(timerange);
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        results = results.filter(r => new Date(r.timestamp) >= cutoff);
+    }
+    
+    return results;
+}
+
+function renderCharts() {
+    const results = getFilteredResults();
+    
+    renderTrendChart(results);
+    renderModelChart(results);
+    renderDistributionChart(results);
+    renderVersionChart(results);
+    renderSummaryTable(results);
+}
+
+function renderTrendChart(results) {
+    if (results.length === 0) {
+        document.getElementById('trend-chart').innerHTML = '<div class="empty-state"><p class="text-muted">No data available</p></div>';
+        return;
+    }
+    
+    const byDate = {};
+    results.forEach(r => {
+        const date = new Date(r.timestamp).toLocaleDateString();
+        if (!byDate[date]) byDate[date] = { total: 0, hallucinations: 0, confidence: 0 };
+        byDate[date].total++;
+        if (r.is_hallucination) byDate[date].hallucinations++;
+        byDate[date].confidence += (1 - r.overall_hallucination_score);
+    });
+    
+    const dates = Object.keys(byDate).sort((a, b) => new Date(a) - new Date(b));
+    const rates = dates.map(d => (byDate[d].hallucinations / byDate[d].total * 100).toFixed(1));
+    const confidence = dates.map(d => (byDate[d].confidence / byDate[d].total * 100).toFixed(1));
+    
+    const traces = [
+        {
+            x: dates,
+            y: rates,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: 'Hallucination Rate',
+            line: { color: '#ef4444', width: 2 },
+            marker: { size: 5 }
+        },
+        {
+            x: dates,
+            y: confidence,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: 'Confidence',
+            line: { color: '#10b981', width: 2 },
+            marker: { size: 5 }
+        }
+    ];
+    
+    const layout = {
+        margin: { t: 20, r: 20, b: 40, l: 50 },
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        font: { color: '#94a3b8', family: 'Inter' },
+        legend: { orientation: 'h', y: -0.2 },
+        xaxis: { gridcolor: '#2a2a3a', linecolor: '#2a2a3a' },
+        yaxis: { gridcolor: '#2a2a3a', linecolor: '#2a2a3a', title: 'Percentage (%)' }
+    };
+    
+    Plotly.newPlot('trend-chart', traces, layout, { responsive: true, displayModeBar: false });
+}
+
+function renderModelChart(results) {
+    if (results.length === 0) {
+        document.getElementById('model-chart').innerHTML = '<div class="empty-state"><p class="text-muted">No data available</p></div>';
+        return;
+    }
+    
+    const byModel = {};
+    results.forEach(r => {
+        if (!byModel[r.model_name]) byModel[r.model_name] = { total: 0, hallucinations: 0 };
+        byModel[r.model_name].total++;
+        if (r.is_hallucination) byModel[r.model_name].hallucinations++;
+    });
+    
+    const models = Object.keys(byModel);
+    const rates = models.map(m => (byModel[m].hallucinations / byModel[m].total * 100).toFixed(1));
+    const colors = rates.map(r => r > 50 ? '#ef4444' : r > 30 ? '#f59e0b' : '#10b981');
+    
+    const trace = {
+        x: models,
+        y: rates,
+        type: 'bar',
+        marker: { color: colors }
+    };
+    
+    const layout = {
+        margin: { t: 20, r: 20, b: 60, l: 50 },
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        font: { color: '#94a3b8', family: 'Inter' },
+        xaxis: { gridcolor: '#2a2a3a', linecolor: '#2a2a3a' },
+        yaxis: { gridcolor: '#2a2a3a', linecolor: '#2a2a3a', title: 'Hallucination Rate (%)' }
+    };
+    
+    Plotly.newPlot('model-chart', [trace], layout, { responsive: true, displayModeBar: false });
+}
+
+function renderDistributionChart(results) {
+    if (results.length === 0) {
+        document.getElementById('distribution-chart').innerHTML = '<div class="empty-state"><p class="text-muted">No data available</p></div>';
+        return;
+    }
+    
+    const byModel = {};
+    results.forEach(r => {
+        if (!byModel[r.model_name]) byModel[r.model_name] = [];
+        byModel[r.model_name].push((1 - r.overall_hallucination_score) * 100);
+    });
+    
+    const traces = Object.entries(byModel).map(([model, scores]) => ({
+        y: scores,
+        type: 'box',
+        name: model,
+        boxpoints: 'outliers'
+    }));
+    
+    const layout = {
+        margin: { t: 20, r: 20, b: 40, l: 50 },
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        font: { color: '#94a3b8', family: 'Inter' },
+        xaxis: { gridcolor: '#2a2a3a', linecolor: '#2a2a3a' },
+        yaxis: { gridcolor: '#2a2a3a', linecolor: '#2a2a3a', title: 'Confidence Score (%)' },
+        showlegend: false
+    };
+    
+    Plotly.newPlot('distribution-chart', traces, layout, { responsive: true, displayModeBar: false });
+}
+
+function renderVersionChart(results) {
+    if (results.length === 0) {
+        document.getElementById('version-chart').innerHTML = '<div class="empty-state"><p class="text-muted">No data available</p></div>';
+        return;
+    }
+    
+    const byVersion = {};
+    results.forEach(r => {
+        if (!byVersion[r.prompt_version]) byVersion[r.prompt_version] = 0;
+        byVersion[r.prompt_version]++;
+    });
+    
+    const versions = Object.keys(byVersion);
+    const counts = versions.map(v => byVersion[v]);
+    
+    const trace = {
+        labels: versions,
+        values: counts,
+        type: 'pie',
+        hole: 0.4,
+        marker: {
+            colors: ['#6366f1', '#8b5cf6', '#a855f7', '#c084fc', '#d8b4fe']
+        },
+        textinfo: 'label+percent',
+        textposition: 'outside'
+    };
+    
+    const layout = {
+        margin: { t: 20, r: 20, b: 20, l: 20 },
+        paper_bgcolor: 'transparent',
+        font: { color: '#94a3b8', family: 'Inter' },
+        showlegend: false
+    };
+    
+    Plotly.newPlot('version-chart', [trace], layout, { responsive: true, displayModeBar: false });
+}
+
+function renderSummaryTable(results) {
+    const tbody = document.getElementById('summary-table');
+    
+    if (results.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding: 40px;">No data available</td></tr>';
+        return;
+    }
+    
+    const byModel = {};
+    results.forEach(r => {
+        if (!byModel[r.model_name]) {
+            byModel[r.model_name] = {
+                total: 0,
+                hallucinations: 0,
+                confidence: 0,
+                semantic: 0
+            };
+        }
+        byModel[r.model_name].total++;
+        if (r.is_hallucination) byModel[r.model_name].hallucinations++;
+        byModel[r.model_name].confidence += (1 - r.overall_hallucination_score);
+        byModel[r.model_name].semantic += r.semantic_similarity_score;
+    });
+    
+    tbody.innerHTML = Object.entries(byModel).map(([model, data]) => {
+        const rate = (data.hallucinations / data.total * 100).toFixed(1);
+        const confidence = (data.confidence / data.total * 100).toFixed(1);
+        const semantic = (data.semantic / data.total * 100).toFixed(1);
+        const trendClass = rate > 50 ? 'text-danger' : rate > 30 ? 'text-warning' : 'text-success';
+        const trendIcon = rate > 50 ? 'High' : rate > 30 ? 'Medium' : 'Low';
+        
+        return `
+            <tr>
+                <td><span class="badge badge-neutral">${model}</span></td>
+                <td>${data.total}</td>
+                <td><span class="${trendClass}">${rate}%</span></td>
+                <td>${confidence}%</td>
+                <td>${semantic}%</td>
+                <td><span class="badge ${rate > 50 ? 'badge-danger' : rate > 30 ? 'badge-warning' : 'badge-success'}">${trendIcon} Risk</span></td>
+            </tr>
+        `;
+    }).join('');
+}
+</script>
+{% endblock %}
+

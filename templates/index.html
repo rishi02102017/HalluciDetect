@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Hallucination Detector Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .results {
+            margin-top: 20px;
+        }
+        
+        .result-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .result-item.hallucination {
+            border-left-color: #e74c3c;
+        }
+        
+        .result-item.not-hallucination {
+            border-left-color: #27ae60;
+        }
+        
+        .score {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        
+        .score.high {
+            background: #fee;
+            color: #c33;
+        }
+        
+        .score.medium {
+            background: #ffeaa7;
+            color: #d63031;
+        }
+        
+        .score.low {
+            background: #d5f4e6;
+            color: #00b894;
+        }
+        
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .chart-container {
+            height: 400px;
+            margin-top: 20px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card p {
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+        
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filters select {
+            flex: 1;
+            min-width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 LLM Hallucination Detector</h1>
+            <p>Automated evaluation pipeline for detecting hallucinations in LLM outputs</p>
+        </div>
+        
+        <div class="dashboard">
+            <div class="card">
+                <h2>Evaluate Single Prompt</h2>
+                <form id="evaluateForm">
+                    <div class="form-group">
+                        <label for="model">Model</label>
+                        <select id="model" name="model" required>
+                            <option value="gpt-4o-mini">GPT-4o Mini</option>
+                            <option value="gpt-4o">GPT-4o</option>
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="promptVersion">Prompt Version</label>
+                        <input type="text" id="promptVersion" name="promptVersion" value="v1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="prompt">Prompt</label>
+                        <textarea id="prompt" name="prompt" placeholder="Enter your prompt here..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="reference">Reference Text (Optional)</label>
+                        <textarea id="reference" name="reference" placeholder="Enter reference/ground truth text..."></textarea>
+                    </div>
+                    <button type="submit" class="btn">Evaluate</button>
+                </form>
+                <div id="singleResult" class="results"></div>
+            </div>
+            
+            <div class="card">
+                <h2>Recent Results</h2>
+                <div class="filters">
+                    <select id="filterModel">
+                        <option value="">All Models</option>
+                    </select>
+                    <select id="filterVersion">
+                        <option value="">All Versions</option>
+                    </select>
+                </div>
+                <div id="recentResults" class="results"></div>
+            </div>
+            
+            <div class="card full-width">
+                <h2>Hallucination Rate Trends</h2>
+                <div class="filters">
+                    <select id="trendModel">
+                        <option value="">All Models</option>
+                    </select>
+                    <select id="trendVersion">
+                        <option value="">All Versions</option>
+                    </select>
+                </div>
+                <div id="trendChart" class="chart-container"></div>
+            </div>
+            
+            <div class="card full-width">
+                <h2>Statistics</h2>
+                <div id="stats" class="stats-grid"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Load initial data
+        loadModels();
+        loadRecentResults();
+        loadTrends();
+        loadStats();
+        
+        // Form submission
+        document.getElementById('evaluateForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = {
+                prompt: formData.get('prompt'),
+                model_name: formData.get('model'),
+                prompt_version: formData.get('promptVersion'),
+                reference_text: formData.get('reference') || null
+            };
+            
+            const resultDiv = document.getElementById('singleResult');
+            resultDiv.innerHTML = '<div class="loading">Evaluating...</div>';
+            
+            try {
+                const response = await fetch('/api/evaluate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                displayResult(result, resultDiv);
+                loadRecentResults();
+                loadTrends();
+                loadStats();
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result-item">Error: ${error.message}</div>`;
+            }
+        });
+        
+        // Filter changes
+        document.getElementById('filterModel').addEventListener('change', loadRecentResults);
+        document.getElementById('filterVersion').addEventListener('change', loadRecentResults);
+        document.getElementById('trendModel').addEventListener('change', loadTrends);
+        document.getElementById('trendVersion').addEventListener('change', loadTrends);
+        
+        function displayResult(result, container) {
+            const isHallucination = result.is_hallucination;
+            const score = result.overall_hallucination_score;
+            const scoreClass = score > 0.7 ? 'high' : score > 0.4 ? 'medium' : 'low';
+            
+            container.innerHTML = `
+                <div class="result-item ${isHallucination ? 'hallucination' : 'not-hallucination'}">
+                    <h3>${isHallucination ? '⚠️ Hallucination Detected' : '✅ No Hallucination'}</h3>
+                    <p><strong>Model:</strong> ${result.model_name} | <strong>Version:</strong> ${result.prompt_version}</p>
+                    <p><strong>Output:</strong> ${result.llm_output.substring(0, 200)}${result.llm_output.length > 200 ? '...' : ''}</p>
+                    <div style="margin-top: 10px;">
+                        <span class="score ${scoreClass}">Hallucination Score: ${(score * 100).toFixed(1)}%</span>
+                        <span class="score ${scoreClass}">Fact Check: ${(result.fact_check_score * 100).toFixed(1)}%</span>
+                        <span class="score ${scoreClass}">Semantic Similarity: ${(result.semantic_similarity_score * 100).toFixed(1)}%</span>
+                        <span class="score ${scoreClass}">Rule-Based: ${(result.rule_based_score * 100).toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        async function loadModels() {
+            try {
+                const response = await fetch('/api/models');
+                const models = await response.json();
+                const modelSelects = ['model', 'filterModel', 'trendModel'];
+                modelSelects.forEach(selectId => {
+                    const select = document.getElementById(selectId);
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">All Models</option>';
+                    [...(models.openai || []), ...(models.anthropic || [])].forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        select.appendChild(option);
+                    });
+                    if (currentValue) select.value = currentValue;
+                });
+            } catch (error) {
+                console.error('Error loading models:', error);
+            }
+        }
+        
+        async function loadRecentResults() {
+            const model = document.getElementById('filterModel').value;
+            const version = document.getElementById('filterVersion').value;
+            const params = new URLSearchParams();
+            if (model) params.append('model_name', model);
+            if (version) params.append('prompt_version', version);
+            
+            try {
+                const response = await fetch(`/api/results?${params.toString()}&limit=10`);
+                const results = await response.json();
+                const container = document.getElementById('recentResults');
+                
+                if (results.length === 0) {
+                    container.innerHTML = '<p>No results found.</p>';
+                    return;
+                }
+                
+                container.innerHTML = results.map(result => {
+                    const isHallucination = result.is_hallucination;
+                    const score = result.overall_hallucination_score;
+                    const scoreClass = score > 0.7 ? 'high' : score > 0.4 ? 'medium' : 'low';
+                    
+                    return `
+                        <div class="result-item ${isHallucination ? 'hallucination' : 'not-hallucination'}">
+                            <p><strong>${result.model_name}</strong> (${result.prompt_version})</p>
+                            <p>${result.llm_output.substring(0, 150)}${result.llm_output.length > 150 ? '...' : ''}</p>
+                            <span class="score ${scoreClass}">Score: ${(score * 100).toFixed(1)}%</span>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error loading results:', error);
+            }
+        }
+        
+        async function loadTrends() {
+            const model = document.getElementById('trendModel').value;
+            const version = document.getElementById('trendVersion').value;
+            const params = new URLSearchParams();
+            if (model) params.append('model_name', model);
+            if (version) params.append('prompt_version', version);
+            
+            try {
+                const response = await fetch(`/api/trends?${params.toString()}`);
+                const trends = await response.json();
+                
+                const traces = [];
+                for (const [key, data] of Object.entries(trends)) {
+                    const timestamps = data.data_points.map(d => d.timestamp);
+                    const rates = data.data_points.map(d => d.hallucination_rate);
+                    
+                    traces.push({
+                        x: timestamps,
+                        y: rates,
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        name: `${data.model_name} (${data.prompt_version})`,
+                        line: { width: 2 }
+                    });
+                }
+                
+                const layout = {
+                    title: 'Hallucination Rate Trends Over Time',
+                    xaxis: { title: 'Time' },
+                    yaxis: { title: 'Hallucination Rate', range: [0, 1] },
+                    hovermode: 'closest',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    paper_bgcolor: 'rgba(0,0,0,0)'
+                };
+                
+                Plotly.newPlot('trendChart', traces, layout, {responsive: true});
+            } catch (error) {
+                console.error('Error loading trends:', error);
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/batches?limit=100');
+                const batches = await response.json();
+                
+                if (batches.length === 0) {
+                    document.getElementById('stats').innerHTML = '<p>No statistics available.</p>';
+                    return;
+                }
+                
+                const totalEvaluations = batches.reduce((sum, b) => sum + b.total_evaluations, 0);
+                const totalHallucinations = batches.reduce((sum, b) => sum + b.hallucination_count, 0);
+                const avgRate = batches.reduce((sum, b) => sum + b.hallucination_rate, 0) / batches.length;
+                const uniqueModels = new Set(batches.map(b => b.model_name)).size;
+                
+                document.getElementById('stats').innerHTML = `
+                    <div class="stat-card">
+                        <h3>${totalEvaluations}</h3>
+                        <p>Total Evaluations</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>${totalHallucinations}</h3>
+                        <p>Hallucinations Detected</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>${(avgRate * 100).toFixed(1)}%</h3>
+                        <p>Average Hallucination Rate</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>${uniqueModels}</h3>
+                        <p>Models Tested</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+    </script>
+</body>
+</html>
+

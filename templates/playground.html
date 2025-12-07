@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}Playground - HalluciDetect{% endblock %}
+{% block header_title %}Playground{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+    <!-- Input Panel -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Evaluation Input</h3>
+        </div>
+        <div class="card-body">
+            <form id="evaluate-form">
+                <div class="form-group">
+                    <label class="form-label">Model</label>
+                    <select class="form-select" id="model-select" name="model">
+                        <option value="gpt-4o-mini">GPT-4o Mini</option>
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                        <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Prompt Version</label>
+                    <input type="text" class="form-input" id="prompt-version" name="prompt_version" value="v1" placeholder="e.g., v1, v2, experiment-A">
+                    <p class="form-hint">Use version tags to track prompt iterations</p>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Prompt</label>
+                    <textarea class="form-textarea" id="prompt-input" name="prompt" placeholder="Enter the prompt to evaluate..." rows="5" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Reference Text (Ground Truth)</label>
+                    <textarea class="form-textarea" id="reference-input" name="reference" placeholder="Optional: Enter the expected/correct answer for comparison..." rows="4"></textarea>
+                    <p class="form-hint">Providing a reference improves evaluation accuracy</p>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;" id="evaluate-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                    </svg>
+                    Run Evaluation
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Results Panel -->
+    <div>
+        <div class="result-panel" id="result-panel" style="display: none;">
+            <div class="result-header">
+                <h3 class="card-title">Evaluation Result</h3>
+                <span class="badge" id="result-status"></span>
+            </div>
+            <div class="result-body">
+                <div class="result-section">
+                    <div class="result-section-title">LLM Output</div>
+                    <div class="result-output" id="result-output"></div>
+                </div>
+                
+                <div class="result-section">
+                    <div class="result-section-title">Scores</div>
+                    <div class="scores-grid">
+                        <div class="score-item">
+                            <div class="score-item-label">Overall Confidence</div>
+                            <div class="score-item-value" id="score-confidence">--</div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-item-label">Hallucination Score</div>
+                            <div class="score-item-value" id="score-hallucination">--</div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-item-label">Semantic Similarity</div>
+                            <div class="score-item-value" id="score-semantic">--</div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-item-label">Fact Check Score</div>
+                            <div class="score-item-value" id="score-factcheck">--</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="result-section">
+                    <div class="result-section-title">Analysis Breakdown</div>
+                    <div id="analysis-details"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Empty State -->
+        <div class="card" id="empty-state">
+            <div class="card-body">
+                <div class="empty-state">
+                    <svg class="empty-state-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <h3 class="empty-state-title">No Evaluation Yet</h3>
+                    <p class="empty-state-text">Enter a prompt and click "Run Evaluation" to analyze LLM outputs for potential hallucinations.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Loading State -->
+        <div class="card" id="loading-state" style="display: none;">
+            <div class="card-body">
+                <div class="empty-state">
+                    <div class="spinner" style="margin: 0 auto 20px;"></div>
+                    <h3 class="empty-state-title">Evaluating...</h3>
+                    <p class="empty-state-text">Generating LLM response and analyzing for hallucinations</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('evaluate-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const btn = document.getElementById('evaluate-btn');
+    const emptyState = document.getElementById('empty-state');
+    const loadingState = document.getElementById('loading-state');
+    const resultPanel = document.getElementById('result-panel');
+    
+    // Show loading
+    emptyState.style.display = 'none';
+    resultPanel.style.display = 'none';
+    loadingState.style.display = 'block';
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Evaluating...';
+    
+    const data = {
+        prompt: document.getElementById('prompt-input').value,
+        model_name: document.getElementById('model-select').value,
+        prompt_version: document.getElementById('prompt-version').value,
+        reference_text: document.getElementById('reference-input').value || null
+    };
+    
+    try {
+        const response = await fetch('/api/evaluate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            alert('Error: ' + result.error);
+            loadingState.style.display = 'none';
+            emptyState.style.display = 'block';
+        } else {
+            displayResult(result);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+        loadingState.style.display = 'none';
+        emptyState.style.display = 'block';
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        Run Evaluation
+    `;
+});
+
+function displayResult(result) {
+    const loadingState = document.getElementById('loading-state');
+    const resultPanel = document.getElementById('result-panel');
+    
+    loadingState.style.display = 'none';
+    resultPanel.style.display = 'block';
+    
+    // Status badge
+    const statusBadge = document.getElementById('result-status');
+    if (result.is_hallucination) {
+        statusBadge.className = 'badge badge-danger';
+        statusBadge.textContent = 'Hallucination Detected';
+    } else {
+        statusBadge.className = 'badge badge-success';
+        statusBadge.textContent = 'Verified';
+    }
+    
+    // Output
+    document.getElementById('result-output').textContent = result.llm_output;
+    
+    // Scores
+    const confidence = ((1 - result.overall_hallucination_score) * 100).toFixed(1);
+    const hallucination = (result.overall_hallucination_score * 100).toFixed(1);
+    const semantic = (result.semantic_similarity_score * 100).toFixed(1);
+    const factcheck = (result.fact_check_score * 100).toFixed(1);
+    
+    document.getElementById('score-confidence').textContent = confidence + '%';
+    document.getElementById('score-confidence').style.color = confidence > 70 ? 'var(--accent-success)' : confidence > 40 ? 'var(--accent-warning)' : 'var(--accent-danger)';
+    
+    document.getElementById('score-hallucination').textContent = hallucination + '%';
+    document.getElementById('score-hallucination').style.color = hallucination < 30 ? 'var(--accent-success)' : hallucination < 60 ? 'var(--accent-warning)' : 'var(--accent-danger)';
+    
+    document.getElementById('score-semantic').textContent = semantic + '%';
+    document.getElementById('score-semantic').style.color = semantic > 70 ? 'var(--accent-success)' : semantic > 40 ? 'var(--accent-warning)' : 'var(--accent-danger)';
+    
+    document.getElementById('score-factcheck').textContent = factcheck + '%';
+    document.getElementById('score-factcheck').style.color = factcheck > 70 ? 'var(--accent-success)' : factcheck > 40 ? 'var(--accent-warning)' : 'var(--accent-danger)';
+    
+    // Analysis details
+    const analysisDetails = document.getElementById('analysis-details');
+    const factDetails = result.fact_check_details || {};
+    const ruleDetails = result.rule_based_details || {};
+    
+    let detailsHtml = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+    
+    // Fact check claims
+    if (factDetails.claims && factDetails.claims.length > 0) {
+        detailsHtml += `
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                <div style="font-weight: 600; margin-bottom: 8px; font-size: 0.875rem;">Extracted Claims (${factDetails.total_claims || 0})</div>
+                <div style="font-size: 0.8125rem; color: var(--text-secondary);">
+                    ${factDetails.claims.slice(0, 3).map(c => `<div style="margin-bottom: 4px;">• ${c.claim.substring(0, 100)}${c.claim.length > 100 ? '...' : ''}</div>`).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Rule-based findings
+    if (ruleDetails.suspicious_patterns && ruleDetails.suspicious_patterns.length > 0) {
+        detailsHtml += `
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                <div style="font-weight: 600; margin-bottom: 8px; font-size: 0.875rem;">Suspicious Patterns Found</div>
+                <div style="font-size: 0.8125rem; color: var(--text-secondary);">
+                    ${ruleDetails.suspicious_patterns.map(p => `<div style="margin-bottom: 4px;">• ${p.count} occurrence(s): ${p.matches.slice(0, 3).join(', ')}</div>`).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    detailsHtml += '</div>';
+    analysisDetails.innerHTML = detailsHtml;
+}
+</script>
+{% endblock %}
+
