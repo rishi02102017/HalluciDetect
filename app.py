@@ -371,9 +371,11 @@ def get_trends():
 def get_models():
     """Get available LLM models."""
     models = {
-        "openai": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
-        "anthropic": ["claude-3-5-sonnet-20241022", "claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"],
-        "free": ["llama-3.1-8b", "gemma-2-9b", "mistral-7b"]
+        "openai": ["gpt-4o", "gpt-4o-mini", "o1-preview", "o1-mini", "gpt-4-turbo"],
+        "anthropic": ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"],
+        "google": ["gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash"],
+        "meta": ["llama-3.3-70b-instruct", "llama-3.2-90b-vision-instruct", "llama-3.1-405b-instruct"],
+        "free": ["llama-3.2-3b-instruct:free", "gemma-2-9b-it:free", "mistral-7b-instruct:free", "qwen-2.5-7b-instruct:free"]
     }
     return jsonify(models)
 
