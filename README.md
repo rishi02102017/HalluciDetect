@@ -1,6 +1,16 @@
-# Automated LLM Evaluation & Hallucination Detector
+<h1 align="center">HalluciDetect</h1>
 
-A comprehensive pipeline for automatically evaluating LLM outputs for hallucinations using fact-check APIs, semantic similarity, and rule-based scoring. Features a professional dashboard showing hallucination rate trends across different prompt versions and models.
+<p align="center">
+  <img src="HalluciDetect.jpeg" alt="HalluciDetect Logo" width="200"/>
+</p>
+
+<p align="center">
+  <strong>Automated LLM Evaluation & Hallucination Detector</strong>
+</p>
+
+<p align="center">
+  A comprehensive pipeline for automatically evaluating LLM outputs for hallucinations using fact-check APIs, semantic similarity, and rule-based scoring. Features a professional dashboard showing hallucination rate trends across different prompt versions and models.
+</p>
 
 ---
 
