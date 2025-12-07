@@ -367,27 +367,45 @@ flowchart TB
 ## Tech Stack
 
 ```mermaid
-mindmap
-    root((HalluciDetect))
-        Backend
-            Flask
-            SQLAlchemy
-            Python 3.9+
-        Frontend
-            HTML5/CSS3
-            JavaScript
-            Plotly.js
-        AI/ML
-            OpenRouter API
-            Sentence Transformers
-            OpenAI SDK
-            Anthropic SDK
-        Database
-            SQLite
-        Evaluation
-            Fact Checking
-            Semantic Similarity
-            Rule-Based Scoring
+%%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#6366f1', 'primaryTextColor': '#ffffff', 'primaryBorderColor': '#818cf8', 'lineColor': '#94a3b8', 'secondaryColor': '#1e1b4b', 'tertiaryColor': '#312e81', 'background': '#0f172a', 'mainBkg': '#1e1b4b', 'nodeBorder': '#818cf8', 'clusterBkg': '#1e1b4b', 'titleColor': '#f1f5f9', 'edgeLabelBackground': '#1e1b4b'}}}%%
+flowchart TB
+    subgraph Core[" HalluciDetect Platform"]
+        direction TB
+        
+        subgraph BE["Backend"]
+            BE1[Flask]
+            BE2[SQLAlchemy]
+            BE3[Python 3.9+]
+        end
+        
+        subgraph FE["Frontend"]
+            FE1[HTML5 / CSS3]
+            FE2[JavaScript]
+            FE3[Plotly.js]
+        end
+        
+        subgraph AI["AI / ML"]
+            AI1[OpenRouter API]
+            AI2[Sentence Transformers]
+            AI3[OpenAI SDK]
+            AI4[Anthropic SDK]
+        end
+        
+        subgraph DB["Database"]
+            DB1[SQLite]
+        end
+        
+        subgraph EV["Evaluation Engine"]
+            EV1[Fact Checking]
+            EV2[Semantic Similarity]
+            EV3[Rule-Based Scoring]
+        end
+    end
+    
+    BE --> AI
+    BE --> DB
+    FE --> BE
+    AI --> EV
 ```
 
 ---
