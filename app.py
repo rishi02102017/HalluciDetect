@@ -1,9 +1,9 @@
 """Flask web application for the dashboard."""
+import os
 from flask import Flask, render_template, jsonify, request
 from flask.json.provider import DefaultJSONProvider
 from flask_cors import CORS
 from datetime import datetime
-from evaluator import HallucinationEvaluator
 from database import Database, convert_to_serializable
 from config import Config
 import json
@@ -26,9 +26,19 @@ app = Flask(__name__)
 app.json = CustomJSONProvider(app)
 CORS(app)
 
-# Initialize components
-evaluator = HallucinationEvaluator()
+# Initialize database (lightweight)
 db = Database()
+
+# Lazy loading for heavy ML components (sentence-transformers takes time to load)
+_evaluator = None
+
+def get_evaluator():
+    """Lazy load the evaluator to speed up app startup."""
+    global _evaluator
+    if _evaluator is None:
+        from evaluator import HallucinationEvaluator
+        _evaluator = HallucinationEvaluator()
+    return _evaluator
 
 @app.route('/')
 def index():
@@ -73,6 +83,7 @@ def evaluate():
         return jsonify({'error': 'Prompt is required'}), 400
     
     try:
+        evaluator = get_evaluator()
         result = evaluator.evaluate(
             prompt=prompt,
             model_name=model_name,
@@ -102,6 +113,7 @@ def evaluate_batch():
         return jsonify({'error': 'prompt_template and test_cases are required'}), 400
     
     try:
+        evaluator = get_evaluator()
         batch = evaluator.evaluate_batch(
             prompt_template=prompt_template,
             test_cases=test_cases,
@@ -164,8 +176,18 @@ def get_trends():
 @app.route('/api/models', methods=['GET'])
 def get_models():
     """Get available LLM models."""
-    models = evaluator.llm_client.list_available_models()
+    # Return static list to avoid loading evaluator for this endpoint
+    models = {
+        "openai": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
+        "anthropic": ["claude-3-5-sonnet-20241022", "claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"],
+        "free": ["llama-3.1-8b", "gemma-2-9b", "mistral-7b"]
+    }
     return jsonify(models)
+
+@app.route('/health')
+def health():
+    """Health check endpoint for Render."""
+    return jsonify({"status": "healthy"})
 
 if __name__ == '__main__':
     app.run(debug=Config.FLASK_DEBUG, host='0.0.0.0', port=5001)
