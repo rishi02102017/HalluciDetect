@@ -1,7 +1,7 @@
 <h1 align="center">HalluciDetect</h1>
 
 <p align="center">
-  <img src="HalluciDetect.jpeg" alt="HalluciDetect Logo" width="200"/>
+  <img src="HalluciDetect.jpeg" alt="HalluciDetect Logo" width="500"/>
 </p>
 
 <p align="center">
