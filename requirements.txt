@@ -1,6 +1,6 @@
+# Core dependencies (production-ready, lightweight)
 openai>=1.12.0
 anthropic>=0.18.0
-sentence-transformers>=2.3.0
 scikit-learn>=1.4.0
 flask>=3.0.0
 flask-cors>=4.0.0
@@ -15,4 +15,3 @@ pydantic>=2.6.0
 tqdm>=4.66.0
 marshmallow>=3.20.0
 gunicorn>=21.0.0
-
