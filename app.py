@@ -416,10 +416,15 @@ def create_template():
 @app.route('/api/templates/<template_id>', methods=['GET'])
 @login_required
 def get_template(template_id):
-    """Get a specific template."""
+    """Get a specific template (only if owned by user or public)."""
     template = db.get_template_by_id(template_id)
     if not template:
         return jsonify({'error': 'Template not found'}), 404
+    
+    # Verify ownership or public access
+    if not template.get('is_public') and template.get('user_id') != current_user.id:
+        return jsonify({'error': 'Not authorized to access this template'}), 403
+    
     return jsonify(template)
 
 @app.route('/api/templates/<template_id>', methods=['DELETE'])
