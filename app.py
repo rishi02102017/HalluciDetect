@@ -177,6 +177,135 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
+# ============ Password Management Routes ============
+
+@app.route('/change-password', methods=['POST'])
+@login_required
+def change_password():
+    """Change password for logged-in user."""
+    current_password = request.form.get('current_password')
+    new_password = request.form.get('new_password')
+    confirm_password = request.form.get('confirm_password')
+    
+    if not all([current_password, new_password, confirm_password]):
+        flash('All fields are required.', 'error')
+        return redirect(url_for('profile'))
+    
+    if not current_user.check_password(current_password):
+        flash('Current password is incorrect.', 'error')
+        return redirect(url_for('profile'))
+    
+    if new_password != confirm_password:
+        flash('New passwords do not match.', 'error')
+        return redirect(url_for('profile'))
+    
+    if len(new_password) < 6:
+        flash('Password must be at least 6 characters.', 'error')
+        return redirect(url_for('profile'))
+    
+    if db.update_user_password(current_user.id, new_password):
+        flash('Password changed successfully!', 'success')
+    else:
+        flash('Failed to change password.', 'error')
+    
+    return redirect(url_for('profile'))
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Forgot password page and handler."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        email = request.form.get('email')
+        
+        if not email:
+            flash('Email is required.', 'error')
+            return redirect(url_for('forgot_password'))
+        
+        token = db.create_password_reset_token(email)
+        
+        if token:
+            # In production, send email here
+            # For now, show the reset link (development mode)
+            reset_url = url_for('reset_password', token=token, _external=True)
+            flash(f'Password reset link has been generated. In production, this would be emailed to you.', 'info')
+            # Store in session for development display
+            from flask import session
+            session['dev_reset_url'] = reset_url
+        else:
+            # Don't reveal if email exists or not (security)
+            flash('If an account with that email exists, a reset link has been sent.', 'info')
+        
+        return redirect(url_for('forgot_password'))
+    
+    return render_template('auth/forgot_password.html')
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Reset password with token."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
+    user = db.verify_password_reset_token(token)
+    if not user:
+        flash('Invalid or expired reset link.', 'error')
+        return redirect(url_for('forgot_password'))
+    
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not new_password or not confirm_password:
+            flash('All fields are required.', 'error')
+            return redirect(url_for('reset_password', token=token))
+        
+        if new_password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            return redirect(url_for('reset_password', token=token))
+        
+        if len(new_password) < 6:
+            flash('Password must be at least 6 characters.', 'error')
+            return redirect(url_for('reset_password', token=token))
+        
+        if db.reset_password_with_token(token, new_password):
+            flash('Password has been reset successfully! Please log in.', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash('Failed to reset password. Please try again.', 'error')
+            return redirect(url_for('forgot_password'))
+    
+    return render_template('auth/reset_password.html', token=token)
+
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    """Verify email with token."""
+    if db.verify_email_token(token):
+        flash('Email verified successfully!', 'success')
+    else:
+        flash('Invalid or expired verification link.', 'error')
+    
+    if current_user.is_authenticated:
+        return redirect(url_for('profile'))
+    return redirect(url_for('login'))
+
+@app.route('/resend-verification')
+@login_required
+def resend_verification():
+    """Resend email verification."""
+    if current_user.email_verified:
+        flash('Email is already verified.', 'info')
+        return redirect(url_for('profile'))
+    
+    token = db.create_email_verification_token(current_user.id)
+    if token:
+        # In production, send email here
+        verify_url = url_for('verify_email', token=token, _external=True)
+        flash('Verification email has been sent. (In dev mode, check console for link)', 'info')
+        print(f"DEV MODE - Verification URL: {verify_url}")
+    
+    return redirect(url_for('profile'))
+
 # ============ API Routes ============
 
 @app.route('/api/evaluate', methods=['POST'])
@@ -339,6 +468,83 @@ def export_results():
     response.headers['Content-Type'] = 'text/csv'
     return response
 
+@app.route('/api/results/export/json', methods=['GET'])
+@login_required
+def export_results_json():
+    """Export results as JSON."""
+    limit = int(request.args.get('limit', 1000))
+    
+    # Export only user's own results
+    results = db.get_user_results(current_user.id, limit)
+    
+    export_data = {
+        'exported_at': datetime.now().isoformat(),
+        'user_id': current_user.id,
+        'total_results': len(results),
+        'results': [convert_to_serializable(r.to_dict()) for r in results]
+    }
+    
+    response = make_response(json.dumps(export_data, indent=2))
+    response.headers['Content-Disposition'] = 'attachment; filename=evaluation_results.json'
+    response.headers['Content-Type'] = 'application/json'
+    return response
+
+@app.route('/api/templates/export/json', methods=['GET'])
+@login_required
+def export_templates_json():
+    """Export user's templates as JSON."""
+    templates = db.get_templates(user_id=current_user.id, include_public=False)
+    
+    export_data = {
+        'exported_at': datetime.now().isoformat(),
+        'user_id': current_user.id,
+        'total_templates': len(templates),
+        'templates': templates
+    }
+    
+    response = make_response(json.dumps(export_data, indent=2))
+    response.headers['Content-Disposition'] = 'attachment; filename=prompt_templates.json'
+    response.headers['Content-Type'] = 'application/json'
+    return response
+
+@app.route('/api/templates/import/json', methods=['POST'])
+@login_required
+def import_templates_json():
+    """Import templates from JSON file."""
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    if not file.filename.endswith('.json'):
+        return jsonify({'error': 'File must be a JSON'}), 400
+    
+    try:
+        data = json.load(file)
+        templates = data.get('templates', [])
+        
+        imported = 0
+        for t in templates:
+            db.create_template(
+                name=t.get('name', 'Imported Template'),
+                prompt_template=t.get('prompt_template', ''),
+                user_id=current_user.id,
+                description=t.get('description', ''),
+                category=t.get('category', 'custom'),
+                reference_template=t.get('reference_template'),
+                is_public=False  # Always private on import
+            )
+            imported += 1
+        
+        return jsonify({
+            'message': f'Successfully imported {imported} templates',
+            'imported': imported
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/batches', methods=['GET'])
 def get_batches():
     """Get evaluation batches."""
@@ -450,10 +656,306 @@ def get_current_user():
         })
     return jsonify({'authenticated': False})
 
+# ============ JWT API Authentication ============
+
+@app.route('/api/auth/token', methods=['POST'])
+def get_api_token():
+    """Get JWT tokens for API authentication."""
+    from jwt_auth import get_tokens_for_user
+    
+    data = request.json or {}
+    email_or_username = data.get('email') or data.get('username')
+    password = data.get('password')
+    
+    if not email_or_username or not password:
+        return jsonify({
+            'error': 'Missing credentials',
+            'message': 'Both email/username and password are required'
+        }), 400
+    
+    user = db.authenticate_user(email_or_username, password)
+    
+    if user:
+        tokens = get_tokens_for_user(user.id, user.username)
+        return jsonify({
+            'success': True,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email
+            },
+            **tokens
+        })
+    
+    return jsonify({
+        'error': 'Authentication failed',
+        'message': 'Invalid email/username or password'
+    }), 401
+
+@app.route('/api/auth/refresh', methods=['POST'])
+def refresh_api_token():
+    """Refresh JWT access token using refresh token."""
+    from jwt_auth import decode_token, generate_access_token
+    
+    data = request.json or {}
+    refresh_token = data.get('refresh_token')
+    
+    if not refresh_token:
+        return jsonify({'error': 'Refresh token required'}), 400
+    
+    payload = decode_token(refresh_token)
+    
+    if 'error' in payload:
+        return jsonify({'error': payload['error']}), 401
+    
+    if payload.get('type') != 'refresh':
+        return jsonify({'error': 'Invalid token type'}), 401
+    
+    user = db.get_user_by_id(payload.get('user_id'))
+    if not user:
+        return jsonify({'error': 'User not found'}), 401
+    
+    new_access_token = generate_access_token(user.id, user.username)
+    
+    return jsonify({
+        'access_token': new_access_token,
+        'token_type': 'Bearer',
+        'expires_in': Config.JWT_ACCESS_TOKEN_EXPIRES
+    })
+
+@app.route('/api/auth/verify', methods=['GET'])
+def verify_api_token():
+    """Verify if a JWT token is valid."""
+    from jwt_auth import jwt_required
+    from flask import g
+    
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'valid': False, 'error': 'No token provided'}), 401
+    
+    parts = auth_header.split()
+    if len(parts) != 2 or parts[0].lower() != 'bearer':
+        return jsonify({'valid': False, 'error': 'Invalid authorization header'}), 401
+    
+    from jwt_auth import decode_token
+    payload = decode_token(parts[1])
+    
+    if 'error' in payload:
+        return jsonify({'valid': False, 'error': payload['error']}), 401
+    
+    return jsonify({
+        'valid': True,
+        'user_id': payload.get('user_id'),
+        'username': payload.get('username'),
+        'expires': payload.get('exp')
+    })
+
+# ============ PDF Export API ============
+
+@app.route('/api/results/export/pdf', methods=['GET'])
+@login_required
+def export_results_pdf():
+    """Export results as PDF report."""
+    from pdf_export import get_pdf_generator
+    
+    limit = int(request.args.get('limit', 100))
+    
+    # Get user's results
+    results = db.get_user_results(current_user.id, limit)
+    results_dicts = [convert_to_serializable(r.to_dict()) for r in results]
+    
+    # Generate PDF
+    pdf_gen = get_pdf_generator()
+    pdf_buffer = pdf_gen.generate_evaluation_report(
+        results_dicts,
+        user_info={'username': current_user.username, 'email': current_user.email},
+        title="HalluciDetect - Evaluation Report"
+    )
+    
+    response = make_response(pdf_buffer.getvalue())
+    response.headers['Content-Disposition'] = 'attachment; filename=evaluation_report.pdf'
+    response.headers['Content-Type'] = 'application/pdf'
+    return response
+
+# ============ Knowledge Base API ============
+
+@app.route('/api/knowledge-base/search', methods=['GET'])
+@login_required
+def search_knowledge_base():
+    """Search the knowledge base."""
+    from knowledge_base import get_knowledge_base
+    
+    query = request.args.get('q', '')
+    if not query:
+        return jsonify({'error': 'Query parameter q is required'}), 400
+    
+    kb = get_knowledge_base()
+    results = kb.search(query, top_k=10)
+    
+    return jsonify({
+        'query': query,
+        'results': results,
+        'count': len(results)
+    })
+
+@app.route('/api/knowledge-base/verify', methods=['POST'])
+@login_required
+def verify_claim():
+    """Verify a claim against the knowledge base."""
+    from knowledge_base import get_knowledge_base
+    
+    data = request.json or {}
+    claim = data.get('claim', '')
+    
+    if not claim:
+        return jsonify({'error': 'Claim is required'}), 400
+    
+    kb = get_knowledge_base()
+    result = kb.verify_claim(claim)
+    
+    return jsonify(result)
+
+@app.route('/api/knowledge-base/facts', methods=['POST'])
+@login_required
+def add_fact():
+    """Add a new fact to the knowledge base."""
+    from knowledge_base import get_knowledge_base
+    
+    data = request.json or {}
+    statement = data.get('statement', '')
+    
+    if not statement:
+        return jsonify({'error': 'Statement is required'}), 400
+    
+    kb = get_knowledge_base()
+    fact = kb.add_fact(
+        statement=statement,
+        category=data.get('category', 'custom'),
+        source=data.get('source', f'user:{current_user.username}'),
+        domain=data.get('domain', 'custom'),
+        verified=data.get('verified', True)
+    )
+    
+    return jsonify({
+        'message': 'Fact added successfully',
+        'fact': fact
+    })
+
+@app.route('/api/knowledge-base/stats', methods=['GET'])
+@login_required
+def get_knowledge_base_stats():
+    """Get knowledge base statistics."""
+    from knowledge_base import get_knowledge_base
+    
+    kb = get_knowledge_base()
+    stats = kb.get_stats()
+    
+    return jsonify(stats)
+
+# ============ Database Backup API ============
+
+@app.route('/api/backup', methods=['POST'])
+@login_required
+def create_backup():
+    """Create a database backup (admin only for now)."""
+    from backup_utils import create_backup as do_backup
+    
+    result = do_backup(db)
+    
+    if result.get('success'):
+        return jsonify({
+            'message': 'Backup created successfully',
+            'type': result.get('type'),
+            'path': result.get('path')
+        })
+    
+    return jsonify({'error': 'Backup failed'}), 500
+
+@app.route('/api/backup/list', methods=['GET'])
+@login_required
+def list_backups():
+    """List available backups."""
+    from backup_utils import get_backup_manager
+    
+    manager = get_backup_manager()
+    backups = manager.list_backups()
+    
+    return jsonify({
+        'backups': backups,
+        'count': len(backups)
+    })
+
+# ============ JWT Protected API Endpoints ============
+
+@app.route('/api/v1/evaluate', methods=['POST'])
+def evaluate_with_jwt():
+    """JWT-protected evaluation endpoint for API clients."""
+    from jwt_auth import jwt_required, jwt_optional
+    from flask import g
+    
+    # Check for JWT auth
+    auth_header = request.headers.get('Authorization')
+    user_id = None
+    
+    if auth_header:
+        parts = auth_header.split()
+        if len(parts) == 2 and parts[0].lower() == 'bearer':
+            from jwt_auth import decode_token
+            payload = decode_token(parts[1])
+            if 'error' not in payload:
+                user_id = payload.get('user_id')
+    
+    # Also check session auth
+    if not user_id and current_user.is_authenticated:
+        user_id = current_user.id
+    
+    if not user_id:
+        return jsonify({
+            'error': 'Authentication required',
+            'message': 'Provide JWT token or login via session'
+        }), 401
+    
+    data = request.json
+    prompt = data.get('prompt')
+    reference_text = data.get('reference_text', '')
+    model_name = data.get('model_name', 'gpt-4o-mini')
+    prompt_version = data.get('prompt_version', 'v1')
+    
+    if not prompt:
+        return jsonify({'error': 'Prompt is required'}), 400
+    
+    evaluator = get_evaluator()
+    
+    # Generate LLM response
+    try:
+        from llm_client import LLMClient
+        llm_client = LLMClient()
+        llm_output = llm_client.generate_response(prompt, model_name)
+    except Exception as e:
+        return jsonify({'error': f'LLM error: {str(e)}'}), 500
+    
+    # Evaluate for hallucinations
+    result = evaluator.evaluate(
+        prompt=prompt,
+        llm_output=llm_output,
+        reference_text=reference_text,
+        model_name=model_name,
+        prompt_version=prompt_version
+    )
+    
+    # Save result
+    db.save_result_with_user(result, user_id)
+    
+    return jsonify(convert_to_serializable(result.to_dict()))
+
 @app.route('/health')
 def health():
     """Health check endpoint for Render."""
-    return jsonify({"status": "healthy"})
+    return jsonify({
+        "status": "healthy",
+        "database": "postgresql" if db.is_postgresql() else "sqlite",
+        "version": "1.2.0"
+    })
 
 if __name__ == '__main__':
     app.run(debug=Config.FLASK_DEBUG, host='0.0.0.0', port=5001)

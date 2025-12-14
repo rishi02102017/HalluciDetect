@@ -14,13 +14,24 @@
         <div class="profile-header-info">
             <h1 class="profile-name">{{ current_user.username }}</h1>
             <p class="profile-email">{{ current_user.email }}</p>
-            <div class="profile-badge">
+            {% if current_user.email_verified %}
+            <div class="profile-badge verified">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
                     <path d="m9 12 2 2 4-4"/>
                 </svg>
                 Verified Account
             </div>
+            {% else %}
+            <div class="profile-badge unverified">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" x2="12" y1="8" y2="12"/>
+                    <line x1="12" x2="12.01" y1="16" y2="16"/>
+                </svg>
+                Unverified Account
+            </div>
+            {% endif %}
         </div>
     </div>
     
@@ -129,7 +140,100 @@
         </div>
     </div>
     
-    <!-- Actions -->
+    <!-- Security Settings -->
+    <div class="profile-section">
+        <h2 class="profile-section-title">Security</h2>
+        
+        <!-- Email Verification Status -->
+        <div class="profile-verification-status" id="verification-status">
+            <div class="verification-info">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="verification-icon {% if current_user.email_verified %}verified{% else %}unverified{% endif %}">
+                    {% if current_user.email_verified %}
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                    <path d="m9 12 2 2 4-4"/>
+                    {% else %}
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" x2="12" y1="8" y2="12"/>
+                    <line x1="12" x2="12.01" y1="16" y2="16"/>
+                    {% endif %}
+                </svg>
+                <div>
+                    <span class="verification-label">Email Verification</span>
+                    <span class="verification-value {% if current_user.email_verified %}verified{% else %}unverified{% endif %}">
+                        {% if current_user.email_verified %}Verified{% else %}Not Verified{% endif %}
+                    </span>
+                </div>
+            </div>
+            {% if not current_user.email_verified %}
+            <a href="{{ url_for('resend_verification') }}" class="btn btn-sm btn-secondary">Resend Verification</a>
+            {% endif %}
+        </div>
+        
+        <!-- Change Password -->
+        <div class="profile-password-section">
+            <h3 class="profile-subsection-title">Change Password</h3>
+            <form method="POST" action="{{ url_for('change_password') }}" class="password-form">
+                <div class="form-group">
+                    <label class="form-label" for="current_password">Current Password</label>
+                    <input type="password" id="current_password" name="current_password" class="form-input" required autocomplete="current-password">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="new_password">New Password</label>
+                        <input type="password" id="new_password" name="new_password" class="form-input" required autocomplete="new-password" minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="confirm_password">Confirm New Password</label>
+                        <input type="password" id="confirm_password" name="confirm_password" class="form-input" required autocomplete="new-password">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Update Password</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Data Management -->
+    <div class="profile-section">
+        <h2 class="profile-section-title">Data Management</h2>
+        <div class="data-export-grid">
+            <div class="export-card">
+                <div class="export-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" x2="12" y1="15" y2="3"/>
+                    </svg>
+                </div>
+                <div class="export-info">
+                    <h4>Export Evaluations</h4>
+                    <p>Download all your evaluation results</p>
+                </div>
+                <div class="export-actions">
+                    <a href="{{ url_for('export_results') }}" class="btn btn-sm btn-secondary">CSV</a>
+                    <a href="{{ url_for('export_results_json') }}" class="btn btn-sm btn-secondary">JSON</a>
+                </div>
+            </div>
+            <div class="export-card">
+                <div class="export-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="12" x2="12" y1="18" y2="12"/>
+                        <line x1="9" x2="15" y1="15" y2="15"/>
+                    </svg>
+                </div>
+                <div class="export-info">
+                    <h4>Export Templates</h4>
+                    <p>Download your custom prompt templates</p>
+                </div>
+                <div class="export-actions">
+                    <a href="{{ url_for('export_templates_json') }}" class="btn btn-sm btn-secondary">JSON</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Account Actions -->
     <div class="profile-section">
         <h2 class="profile-section-title">Account Actions</h2>
         <div class="profile-actions">
@@ -198,11 +302,20 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.375rem 0.75rem;
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.3);
     border-radius: 100px;
     font-size: 0.8125rem;
+}
+
+.profile-badge.verified {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
     color: var(--accent-success);
+}
+
+.profile-badge.unverified {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: var(--accent-warning);
 }
 
 .profile-badge svg {
@@ -365,6 +478,162 @@
     height: 18px;
 }
 
+/* Email Verification Status */
+.profile-verification-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+
+.verification-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.verification-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.verification-icon.verified {
+    color: var(--accent-success);
+}
+
+.verification-icon.unverified {
+    color: var(--accent-warning);
+}
+
+.verification-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.verification-value {
+    font-size: 0.9375rem;
+    font-weight: 500;
+}
+
+.verification-value.verified {
+    color: var(--accent-success);
+}
+
+.verification-value.unverified {
+    color: var(--accent-warning);
+}
+
+/* Password Change Section */
+.profile-password-section {
+    margin-top: 1rem;
+}
+
+.profile-subsection-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+}
+
+.password-form {
+    max-width: 600px;
+}
+
+.password-form .form-group {
+    margin-bottom: 1rem;
+}
+
+.password-form .form-label {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.password-form .form-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+}
+
+.password-form .form-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+/* Data Export Section */
+.data-export-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.export-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+}
+
+.export-icon {
+    width: 44px;
+    height: 44px;
+    background: rgba(99, 102, 241, 0.1);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.export-icon svg {
+    width: 22px;
+    height: 22px;
+    color: var(--accent-primary);
+}
+
+.export-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.export-info h4 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.export-info p {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.export-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
 @media (max-width: 768px) {
     .profile-header {
         flex-direction: column;
@@ -377,6 +646,30 @@
     
     .profile-details-grid {
         grid-template-columns: 1fr;
+    }
+    
+    .profile-verification-status {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .export-card {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
+    
+    .export-actions {
+        width: 100%;
+    }
+    
+    .export-actions .btn {
+        flex: 1;
     }
 }
 </style>

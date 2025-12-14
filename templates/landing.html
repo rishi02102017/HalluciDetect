@@ -3,120 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HalluciDetect - LLM Evaluation & Hallucination Detection Platform</title>
-    <meta name="description" content="Automated LLM Evaluation & Hallucination Detection Platform. Detect hallucinations in AI outputs with fact-checking, semantic analysis, and rule-based scoring.">
+    <title>HalluciDetect - Real-Time LLM Hallucination Detection</title>
+    <meta name="description" content="Detect hallucinations in AI outputs in real-time. Automated fact-checking, semantic analysis, and multi-model evaluation.">
     <meta name="theme-color" content="#6366f1">
     
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%236366f1' rx='20' width='100' height='100'/><text x='50%' y='53%' dominant-baseline='middle' text-anchor='middle' font-size='60' fill='white'>H</text></svg>">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-tertiary: #1a1a24;
-            --bg-card: #16161f;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --accent-primary: #6366f1;
-            --accent-secondary: #8b5cf6;
-            --accent-success: #10b981;
-            --accent-warning: #f59e0b;
-            --accent-danger: #ef4444;
-            --border-color: #2a2a3a;
-            --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+            --bg-void: #030308;
+            --bg-deep: #0a0a12;
+            --bg-surface: #111119;
+            --bg-elevated: #18181f;
+            --text-primary: #f0f0f5;
+            --text-secondary: #9898a8;
+            --text-muted: #5a5a6a;
+            --accent: #6366f1;
+            --accent-bright: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.5);
+            --success: #22c55e;
+            --success-glow: rgba(34, 197, 94, 0.4);
+            --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.4);
+            --warning: #f59e0b;
+            --border: rgba(255, 255, 255, 0.06);
+            --gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
         }
         
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        html { scroll-behavior: smooth; }
         
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
+            font-family: 'Space Grotesk', -apple-system, sans-serif;
+            background: var(--bg-void);
             color: var(--text-primary);
             min-height: 100vh;
             overflow-x: hidden;
         }
         
-        /* Animated Background with Floating Orbs */
-        .bg-effects {
+        /* ============================================
+           PARTICLE NETWORK CANVAS
+           ============================================ */
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.6;
+        }
+        
+        /* ============================================
+           SCAN LINE EFFECT
+           ============================================ */
+        .scan-line {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            bottom: 0;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                var(--accent) 20%, 
+                var(--accent-bright) 50%, 
+                var(--accent) 80%, 
+                transparent 100%);
+            box-shadow: 0 0 30px var(--accent-glow), 0 0 60px var(--accent-glow);
+            z-index: 1000;
+            opacity: 0;
             pointer-events: none;
-            z-index: 0;
+            animation: scanDown 8s ease-in-out infinite;
+        }
+        
+        @keyframes scanDown {
+            0%, 100% { top: -10px; opacity: 0; }
+            5% { opacity: 1; }
+            95% { opacity: 1; }
+            99% { top: 100vh; opacity: 0; }
+        }
+        
+        /* ============================================
+           FLOATING ICONS
+           ============================================ */
+        .floating-icons {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
             overflow: hidden;
         }
         
-        .orb {
+        .float-icon {
             position: absolute;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.5;
-            animation: float 20s ease-in-out infinite;
+            font-size: 1.5rem;
+            opacity: 0.15;
+            animation: floatUp 20s linear infinite;
         }
         
-        .orb-1 {
-            width: 600px;
-            height: 600px;
-            background: rgba(99, 102, 241, 0.15);
-            top: -200px;
-            left: -100px;
-            animation-delay: 0s;
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.15; }
+            90% { opacity: 0.15; }
+            100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
         }
         
-        .orb-2 {
-            width: 500px;
-            height: 500px;
-            background: rgba(139, 92, 246, 0.12);
-            top: 50%;
-            right: -150px;
-            animation-delay: -5s;
-            animation-duration: 25s;
-        }
-        
-        .orb-3 {
-            width: 400px;
-            height: 400px;
-            background: rgba(168, 85, 247, 0.1);
-            bottom: -100px;
-            left: 30%;
-            animation-delay: -10s;
-            animation-duration: 22s;
-        }
-        
-        @keyframes float {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            25% { transform: translate(30px, -30px) scale(1.05); }
-            50% { transform: translate(-20px, 20px) scale(0.95); }
-            75% { transform: translate(20px, 10px) scale(1.02); }
-        }
-        
-        /* Grid Pattern Overlay */
-        .grid-pattern {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: 
-                linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
-            background-size: 60px 60px;
-            pointer-events: none;
-            z-index: 0;
-        }
-        
-        /* Navigation */
+        /* ============================================
+           NAVIGATION
+           ============================================ */
         .nav {
             position: fixed;
             top: 0;
@@ -127,9 +129,9 @@
             align-items: center;
             justify-content: space-between;
             z-index: 100;
-            background: rgba(10, 10, 15, 0.85);
+            background: rgba(3, 3, 8, 0.8);
             backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid var(--border);
         }
         
         .nav-brand {
@@ -140,9 +142,9 @@
         }
         
         .nav-logo {
-            width: 42px;
-            height: 42px;
-            background: var(--gradient-primary);
+            width: 44px;
+            height: 44px;
+            background: var(--gradient);
             border-radius: 12px;
             display: flex;
             align-items: center;
@@ -150,12 +152,30 @@
             font-weight: 700;
             font-size: 1.25rem;
             color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .nav-logo::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.3) 50%, transparent 60%);
+            animation: shimmer 3s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) rotate(45deg); }
         }
         
         .nav-title {
-            font-size: 1.25rem;
+            font-size: 1.375rem;
             font-weight: 700;
-            background: var(--gradient-primary);
+            background: var(--gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -168,10 +188,10 @@
         }
         
         .nav-link {
-            padding: 0.5rem 1rem;
+            padding: 0.625rem 1rem;
             color: var(--text-secondary);
             text-decoration: none;
-            font-size: 0.875rem;
+            font-size: 0.9rem;
             font-weight: 500;
             border-radius: 8px;
             transition: all 0.2s;
@@ -183,89 +203,131 @@
         }
         
         .nav-btn {
-            padding: 0.5rem 1.25rem;
-            background: var(--gradient-primary);
+            padding: 0.625rem 1.5rem;
+            background: var(--gradient);
             color: white;
             text-decoration: none;
-            font-size: 0.875rem;
+            font-size: 0.9rem;
             font-weight: 600;
             border-radius: 8px;
             transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
         }
         
         .nav-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(99, 102, 241, 0.4);
         }
         
-        /* Hero Section */
+        .nav-hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+        }
+        
+        .hamburger-line {
+            width: 24px;
+            height: 2px;
+            background: var(--text-primary);
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+        
+        /* ============================================
+           HERO SECTION
+           ============================================ */
         .hero {
             position: relative;
             min-height: 100vh;
             display: flex;
             align-items: center;
             padding: 8rem 2rem 4rem;
-            z-index: 1;
+            z-index: 10;
         }
         
         .hero-container {
             max-width: 1400px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1.2fr;
             gap: 4rem;
             align-items: center;
         }
         
-        .hero-content {
-            max-width: 600px;
-        }
+        .hero-content { max-width: 580px; }
         
         .hero-badge {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.4rem 0.875rem;
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid rgba(99, 102, 241, 0.2);
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
             border-radius: 100px;
             font-size: 0.8125rem;
-            color: var(--accent-primary);
+            color: var(--success);
             margin-bottom: 1.5rem;
         }
         
-        .hero-badge-dot {
-            width: 6px;
-            height: 6px;
-            background: var(--accent-success);
+        .badge-pulse {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
             border-radius: 50%;
             animation: pulse 2s infinite;
+            box-shadow: 0 0 10px var(--success-glow);
         }
         
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
         }
         
         .hero-title {
-            font-size: clamp(2.5rem, 5vw, 3.75rem);
-            font-weight: 800;
+            font-size: clamp(2.75rem, 5.5vw, 4rem);
+            font-weight: 700;
             line-height: 1.1;
-            margin-bottom: 1.25rem;
+            margin-bottom: 1.5rem;
             letter-spacing: -0.03em;
         }
         
-        .hero-title-gradient {
-            background: var(--gradient-primary);
+        .title-gradient {
+            background: var(--gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
         
+        .title-highlight {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .title-highlight::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient);
+            border-radius: 2px;
+            animation: widthPulse 2s infinite;
+        }
+        
+        @keyframes widthPulse {
+            0%, 100% { transform: scaleX(1); }
+            50% { transform: scaleX(0.8); }
+        }
+        
         .hero-subtitle {
             font-size: 1.125rem;
             color: var(--text-secondary);
-            line-height: 1.7;
+            line-height: 1.8;
             margin-bottom: 2rem;
         }
         
@@ -280,66 +342,79 @@
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.875rem 1.75rem;
-            font-size: 0.9375rem;
+            padding: 1rem 2rem;
+            font-size: 1rem;
             font-weight: 600;
-            border-radius: 10px;
+            border-radius: 12px;
             text-decoration: none;
-            transition: all 0.2s;
+            transition: all 0.25s;
             cursor: pointer;
             border: none;
-        }
-        
-        .btn-primary {
-            background: var(--gradient-primary);
-            color: white;
-            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
-        }
-        
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-        }
-        
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: var(--accent-primary);
+            font-family: inherit;
         }
         
         .btn svg {
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
         }
         
-        /* Live Demo Preview */
+        .btn-primary {
+            background: var(--gradient);
+            color: white;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 35px rgba(99, 102, 241, 0.45);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: var(--accent);
+        }
+        
+        /* ============================================
+           LIVE DETECTION DEMO
+           ============================================ */
         .hero-demo {
             position: relative;
+            perspective: 1000px;
+        }
+        
+        .demo-wrapper {
+            transform: rotateY(-5deg) rotateX(5deg);
+            transition: transform 0.5s ease;
+        }
+        
+        .demo-wrapper:hover {
+            transform: rotateY(0deg) rotateX(0deg);
         }
         
         .demo-window {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
             overflow: hidden;
             box-shadow: 
                 0 0 0 1px rgba(255, 255, 255, 0.05),
-                0 20px 50px rgba(0, 0, 0, 0.5),
-                0 0 100px rgba(99, 102, 241, 0.1);
+                0 25px 60px rgba(0, 0, 0, 0.6),
+                0 0 120px rgba(99, 102, 241, 0.1);
         }
         
         .demo-header {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 1rem 1.25rem;
-            background: var(--bg-tertiary);
-            border-bottom: 1px solid var(--border-color);
+            gap: 10px;
+            padding: 1rem 1.5rem;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border);
         }
         
         .demo-dot {
@@ -348,152 +423,291 @@
             border-radius: 50%;
         }
         
-        .demo-dot-red { background: #ef4444; }
-        .demo-dot-yellow { background: #f59e0b; }
-        .demo-dot-green { background: #10b981; }
+        .demo-dot.red { background: #ff5f57; }
+        .demo-dot.yellow { background: #ffbd2e; }
+        .demo-dot.green { background: #28c840; }
         
-        .demo-title {
-            margin-left: 0.75rem;
-            font-size: 0.8125rem;
+        .demo-title-bar {
+            flex: 1;
+            text-align: center;
+            font-size: 0.8rem;
             color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
         }
         
         .demo-body {
             padding: 1.5rem;
         }
         
-        .demo-section {
+        /* Live Text Stream */
+        .stream-container {
+            background: var(--bg-deep);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
             margin-bottom: 1.25rem;
+            min-height: 120px;
+            position: relative;
+            overflow: hidden;
         }
         
-        .demo-section:last-child {
-            margin-bottom: 0;
-        }
-        
-        .demo-label {
-            font-size: 0.6875rem;
+        .stream-label {
+            position: absolute;
+            top: 0.75rem;
+            left: 1rem;
+            font-size: 0.65rem;
             text-transform: uppercase;
             letter-spacing: 0.1em;
             color: var(--text-muted);
-            margin-bottom: 0.5rem;
+            background: var(--bg-deep);
+            padding: 0 0.5rem;
         }
         
-        .demo-input {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 0.875rem 1rem;
+        .stream-text {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8125rem;
-            color: var(--text-primary);
-            line-height: 1.5;
-        }
-        
-        .demo-output {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 1rem;
-        }
-        
-        .demo-text {
-            font-size: 0.875rem;
-            line-height: 1.7;
+            font-size: 0.85rem;
+            line-height: 1.8;
             color: var(--text-secondary);
+            margin-top: 0.5rem;
         }
         
-        .demo-text .verified {
-            background: rgba(16, 185, 129, 0.15);
-            border-bottom: 2px solid var(--accent-success);
-            padding: 0.125rem 0;
+        .stream-text .char {
+            display: inline;
+            opacity: 0;
+            animation: charFade 0.1s forwards;
         }
         
-        .demo-text .hallucination {
-            background: rgba(239, 68, 68, 0.15);
-            border-bottom: 2px solid var(--accent-danger);
-            padding: 0.125rem 0;
+        @keyframes charFade {
+            to { opacity: 1; }
         }
         
-        .demo-result {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border-color);
+        .stream-text .verified {
+            color: var(--success);
+            text-shadow: 0 0 10px var(--success-glow);
+            position: relative;
         }
         
-        .demo-score {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
+        .stream-text .verified::before {
+            content: '✓';
+            font-size: 0.6em;
+            margin-right: 2px;
+            opacity: 0.7;
         }
         
-        .score-circle {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 0.875rem;
+        .stream-text .hallucination {
+            color: var(--danger);
+            text-shadow: 0 0 10px var(--danger-glow);
+            text-decoration: wavy underline;
+            text-underline-offset: 3px;
+            animation: glitch 0.3s infinite;
         }
         
-        .score-high {
-            background: rgba(239, 68, 68, 0.15);
-            border: 2px solid var(--accent-danger);
-            color: var(--accent-danger);
+        @keyframes glitch {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-1px); }
+            75% { transform: translateX(1px); }
         }
         
-        .score-label {
-            font-size: 0.75rem;
-            color: var(--text-muted);
+        .stream-text .scanning {
+            background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
+            background-size: 200% 100%;
+            animation: scanHighlight 1s ease-in-out;
         }
         
-        .score-value {
-            font-size: 0.9375rem;
-            font-weight: 600;
-            color: var(--accent-danger);
+        @keyframes scanHighlight {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
         
-        .demo-status {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.375rem 0.75rem;
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            border-radius: 100px;
-            font-size: 0.75rem;
-            color: var(--accent-danger);
-        }
-        
-        .demo-status-icon {
-            width: 14px;
-            height: 14px;
-        }
-        
-        /* Typing Animation */
-        .typing-cursor {
+        .cursor-blink {
             display: inline-block;
             width: 2px;
-            height: 1em;
-            background: var(--accent-primary);
+            height: 1.1em;
+            background: var(--accent);
             margin-left: 2px;
             animation: blink 1s step-end infinite;
+            vertical-align: text-bottom;
         }
         
         @keyframes blink {
-            0%, 100% { opacity: 1; }
             50% { opacity: 0; }
         }
         
-        /* Features Section */
+        /* Score Dashboard */
+        .score-dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        .score-gauge {
+            background: var(--bg-deep);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .gauge-ring {
+            width: 100px;
+            height: 100px;
+            position: relative;
+        }
+        
+        .gauge-ring svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+        
+        .gauge-bg {
+            fill: none;
+            stroke: var(--bg-elevated);
+            stroke-width: 8;
+        }
+        
+        .gauge-fill {
+            fill: none;
+            stroke: url(#gaugeGradient);
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 251.2;
+            stroke-dashoffset: 251.2;
+            transition: stroke-dashoffset 1s ease-out;
+        }
+        
+        .gauge-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .gauge-label {
+            margin-top: 0.75rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        /* Method Breakdown */
+        .method-card {
+            background: var(--bg-deep);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1rem;
+        }
+        
+        .method-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .method-item:last-child {
+            border-bottom: none;
+        }
+        
+        .method-name {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .method-icon {
+            width: 16px;
+            height: 16px;
+            opacity: 0.7;
+        }
+        
+        .method-score {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .method-score.good { color: var(--success); }
+        .method-score.warn { color: var(--warning); }
+        .method-score.bad { color: var(--danger); }
+        
+        .method-bar {
+            width: 60px;
+            height: 4px;
+            background: var(--bg-elevated);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-left: 0.75rem;
+        }
+        
+        .method-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+        
+        /* ============================================
+           LIVE STATS BAR
+           ============================================ */
+        .stats-bar {
+            position: relative;
+            z-index: 10;
+            padding: 2rem;
+            background: rgba(99, 102, 241, 0.03);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .stats-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        /* ============================================
+           FEATURES SECTION
+           ============================================ */
         .features {
             position: relative;
-            padding: 6rem 2rem;
-            z-index: 1;
+            z-index: 10;
+            padding: 8rem 2rem;
         }
         
         .features-container {
@@ -506,27 +720,33 @@
             margin-bottom: 4rem;
         }
         
-        .section-label {
+        .section-tag {
             display: inline-block;
+            padding: 0.375rem 1rem;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 100px;
             font-size: 0.75rem;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.15em;
-            color: var(--accent-primary);
-            margin-bottom: 1rem;
+            letter-spacing: 0.1em;
+            color: var(--accent-bright);
+            margin-bottom: 1.25rem;
         }
         
         .section-title {
-            font-size: 2.25rem;
+            font-size: 2.5rem;
             font-weight: 700;
             margin-bottom: 1rem;
             letter-spacing: -0.02em;
         }
         
         .section-subtitle {
-            font-size: 1.0625rem;
+            font-size: 1.1rem;
             color: var(--text-secondary);
             max-width: 600px;
             margin: 0 auto;
+            line-height: 1.7;
         }
         
         .features-grid {
@@ -536,62 +756,157 @@
         }
         
         .feature-card {
-            background: rgba(22, 22, 31, 0.6);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
+            background: rgba(17, 17, 25, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 20px;
             padding: 2rem;
-            transition: all 0.3s ease;
-            opacity: 0;
-            transform: translateY(20px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            transform-style: preserve-3d;
         }
         
-        .feature-card.visible {
-            opacity: 1;
-            transform: translateY(0);
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--gradient);
+            transform: scaleX(0);
+            transition: transform 0.4s;
+        }
+        
+        .feature-card:hover::before {
+            transform: scaleX(1);
         }
         
         .feature-card:hover {
+            transform: translateY(-8px);
             border-color: rgba(99, 102, 241, 0.3);
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3), 0 0 50px rgba(99, 102, 241, 0.1);
         }
         
         .feature-icon {
-            width: 48px;
-            height: 48px;
+            width: 56px;
+            height: 56px;
             background: rgba(99, 102, 241, 0.1);
             border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 12px;
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 1.25rem;
+            margin-bottom: 1.5rem;
+            position: relative;
         }
         
         .feature-icon svg {
-            width: 24px;
-            height: 24px;
-            color: var(--accent-primary);
+            width: 28px;
+            height: 28px;
+            color: var(--accent-bright);
+        }
+        
+        .feature-icon::after {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 14px;
+            background: var(--gradient);
+            opacity: 0;
+            z-index: -1;
+            transition: opacity 0.3s;
+        }
+        
+        .feature-card:hover .feature-icon::after {
+            opacity: 0.2;
         }
         
         .feature-title {
-            font-size: 1.125rem;
+            font-size: 1.25rem;
             font-weight: 600;
-            margin-bottom: 0.625rem;
+            margin-bottom: 0.75rem;
         }
         
         .feature-description {
-            font-size: 0.9375rem;
+            font-size: 0.95rem;
             color: var(--text-secondary);
-            line-height: 1.6;
+            line-height: 1.7;
         }
         
-        /* How It Works */
+        /* ============================================
+           MODELS SECTION
+           ============================================ */
+        .models {
+            position: relative;
+            z-index: 10;
+            padding: 4rem 2rem;
+            background: rgba(99, 102, 241, 0.02);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .models-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        .models-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 2rem;
+        }
+        
+        .models-grid {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 3rem;
+            flex-wrap: wrap;
+        }
+        
+        .model-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            opacity: 0.4;
+            transition: all 0.3s;
+            cursor: default;
+        }
+        
+        .model-item:hover {
+            opacity: 1;
+            transform: translateY(-4px);
+        }
+        
+        .model-logo {
+            width: 48px;
+            height: 48px;
+            color: var(--text-secondary);
+        }
+        
+        .model-logo svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .model-name {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        
+        /* ============================================
+           HOW IT WORKS
+           ============================================ */
         .how-it-works {
             position: relative;
-            padding: 6rem 2rem;
-            background: linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.03) 50%, transparent 100%);
-            z-index: 1;
+            z-index: 10;
+            padding: 8rem 2rem;
         }
         
         .steps-container {
@@ -601,11 +916,12 @@
         
         .step {
             display: flex;
-            gap: 2rem;
+            gap: 2.5rem;
             align-items: flex-start;
             margin-bottom: 3rem;
             opacity: 0;
-            transform: translateX(-20px);
+            transform: translateX(-30px);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         .step.visible {
@@ -613,181 +929,83 @@
             transform: translateX(0);
         }
         
-        .step:last-child {
-            margin-bottom: 0;
-        }
+        .step:last-child { margin-bottom: 0; }
         
         .step-number {
-            width: 56px;
-            height: 56px;
-            background: var(--gradient-primary);
-            border-radius: 16px;
+            width: 64px;
+            height: 64px;
+            background: var(--gradient);
+            border-radius: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            font-size: 1.25rem;
+            font-size: 1.5rem;
             flex-shrink: 0;
-            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.35);
+            position: relative;
+        }
+        
+        .step-number::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            width: 2px;
+            height: 50px;
+            background: linear-gradient(to bottom, var(--accent), transparent);
+        }
+        
+        .step:last-child .step-number::after {
+            display: none;
         }
         
         .step-content h3 {
-            font-size: 1.25rem;
+            font-size: 1.375rem;
             font-weight: 600;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.625rem;
         }
         
         .step-content p {
             color: var(--text-secondary);
-            line-height: 1.6;
+            line-height: 1.7;
+            font-size: 1rem;
         }
         
-        /* CTA Section */
-        .cta {
-            position: relative;
-            padding: 8rem 2rem;
-            text-align: center;
-            z-index: 1;
-        }
-        
-        .cta-container {
-            max-width: 700px;
-            margin: 0 auto;
-            padding: 4rem;
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 24px;
-        }
-        
-        .cta-title {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            letter-spacing: -0.02em;
-        }
-        
-        .cta-subtitle {
-            font-size: 1.0625rem;
-            color: var(--text-secondary);
-            margin-bottom: 2rem;
-        }
-        
-        /* Footer */
-        .footer {
-            position: relative;
-            padding: 2rem;
-            text-align: center;
-            border-top: 1px solid var(--border-color);
-            z-index: 1;
-        }
-        
-        .footer-text {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-        }
-        
-        .footer-text a {
-            color: var(--accent-primary);
-            text-decoration: none;
-        }
-        
-        .footer-text a:hover {
-            text-decoration: underline;
-        }
-        
-        /* Integrations/Models Section */
-        .integrations {
-            position: relative;
-            padding: 4rem 2rem;
-            border-top: 1px solid var(--border-color);
-            border-bottom: 1px solid var(--border-color);
-            background: rgba(99, 102, 241, 0.02);
-            z-index: 1;
-        }
-        
-        .integrations-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            text-align: center;
-        }
-        
-        .integrations-label {
-            font-size: 0.8125rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin-bottom: 2rem;
-        }
-        
-        .integrations-grid {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 3rem;
-            flex-wrap: wrap;
-        }
-        
-        .integration-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.625rem;
-            opacity: 0.5;
-            transition: all 0.3s ease;
-        }
-        
-        .integration-item:hover {
-            opacity: 1;
-        }
-        
-        .integration-logo {
-            width: 40px;
-            height: 40px;
-            color: var(--text-secondary);
-        }
-        
-        .integration-logo svg {
-            width: 100%;
-            height: 100%;
-        }
-        
-        .integration-name {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-        
-        /* FAQ Section */
+        /* ============================================
+           FAQ SECTION
+           ============================================ */
         .faq {
             position: relative;
+            z-index: 10;
             padding: 6rem 2rem;
-            z-index: 1;
+            background: rgba(99, 102, 241, 0.02);
         }
         
         .faq-container {
-            max-width: 1000px;
+            max-width: 900px;
             margin: 0 auto;
         }
         
         .faq-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 1.5rem;
+            gap: 1.25rem;
         }
         
         .faq-item {
-            background: rgba(22, 22, 31, 0.6);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
+            background: rgba(17, 17, 25, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 16px;
             padding: 1.5rem;
+            transition: all 0.3s;
             opacity: 0;
             transform: translateY(20px);
-            transition: opacity 0.5s ease, transform 0.5s ease, border-color 0.3s ease;
         }
         
         .faq-item.visible {
-            opacity: 1 !important;
-            transform: translateY(0) !important;
+            opacity: 1;
+            transform: translateY(0);
         }
         
         .faq-item:hover {
@@ -797,33 +1015,115 @@
         .faq-question {
             font-size: 1rem;
             font-weight: 600;
-            color: var(--text-primary);
             margin-bottom: 0.75rem;
+            color: var(--text-primary);
         }
         
         .faq-answer {
-            font-size: 0.875rem;
+            font-size: 0.9rem;
             color: var(--text-secondary);
             line-height: 1.7;
         }
         
-        /* Responsive */
+        /* ============================================
+           CTA SECTION
+           ============================================ */
+        .cta {
+            position: relative;
+            z-index: 10;
+            padding: 8rem 2rem;
+            text-align: center;
+        }
+        
+        .cta-container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 4rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.08) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: 28px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cta-container::before {
+            content: '';
+            position: absolute;
+            top: -100%;
+            left: -100%;
+            width: 300%;
+            height: 300%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 50%);
+            animation: ctaPulse 10s infinite;
+        }
+        
+        @keyframes ctaPulse {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(30%, 30%); }
+        }
+        
+        .cta-title {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+            position: relative;
+        }
+        
+        .cta-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        
+        .cta .btn {
+            position: relative;
+        }
+        
+        /* ============================================
+           FOOTER
+           ============================================ */
+        .footer {
+            position: relative;
+            z-index: 10;
+            padding: 2rem;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+        
+        .footer-text {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        
+        .footer-text a {
+            color: var(--accent-bright);
+            text-decoration: none;
+        }
+        
+        .footer-text a:hover {
+            text-decoration: underline;
+        }
+        
+        /* ============================================
+           RESPONSIVE
+           ============================================ */
         @media (max-width: 1024px) {
             .hero-container {
                 grid-template-columns: 1fr;
                 text-align: center;
             }
             
-            .hero-content {
-                max-width: 100%;
-            }
+            .hero-content { max-width: 100%; }
             
             .hero-actions {
                 justify-content: center;
             }
             
-            .hero-demo {
-                max-width: 500px;
+            .demo-wrapper {
+                transform: none;
+                max-width: 550px;
                 margin: 0 auto;
             }
             
@@ -832,49 +1132,10 @@
             }
         }
         
-        /* Hamburger menu - hidden on desktop */
-        .nav-hamburger {
-            display: none;
-            flex-direction: column;
-            justify-content: space-between;
-            width: 28px;
-            height: 20px;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            padding: 0;
-            z-index: 1001;
-        }
-        
-        .hamburger-line {
-            display: block;
-            width: 100%;
-            height: 3px;
-            background: var(--text-primary);
-            border-radius: 2px;
-            transition: all 0.3s ease;
-        }
-        
-        .nav-hamburger.active .hamburger-line:nth-child(1) {
-            transform: rotate(45deg) translate(6px, 6px);
-        }
-        
-        .nav-hamburger.active .hamburger-line:nth-child(2) {
-            opacity: 0;
-        }
-        
-        .nav-hamburger.active .hamburger-line:nth-child(3) {
-            transform: rotate(-45deg) translate(6px, -6px);
-        }
-        
         @media (max-width: 768px) {
-            .nav {
-                padding: 1rem;
-            }
+            .nav { padding: 1rem; }
             
-            .nav-hamburger {
-                display: flex;
-            }
+            .nav-hamburger { display: flex; }
             
             .nav-links {
                 position: fixed;
@@ -882,30 +1143,22 @@
                 right: -100%;
                 width: 280px;
                 height: 100vh;
-                background: rgba(15, 15, 26, 0.98);
+                background: rgba(10, 10, 18, 0.98);
                 backdrop-filter: blur(20px);
                 flex-direction: column;
                 padding: 5rem 2rem 2rem;
-                gap: 0.5rem;
-                transition: right 0.3s ease;
+                gap: 0.75rem;
+                transition: right 0.3s;
                 z-index: 1000;
-                border-left: 1px solid rgba(99, 102, 241, 0.2);
+                border-left: 1px solid var(--border);
             }
             
-            .nav-links.active {
-                right: 0;
-            }
+            .nav-links.active { right: 0; }
             
             .nav-link {
                 display: block;
                 padding: 1rem;
                 font-size: 1rem;
-                border-radius: 8px;
-                transition: background 0.2s ease;
-            }
-            
-            .nav-link:hover {
-                background: rgba(99, 102, 241, 0.1);
             }
             
             .nav-btn {
@@ -917,38 +1170,30 @@
             .mobile-overlay {
                 display: none;
                 position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
+                inset: 0;
                 background: rgba(0, 0, 0, 0.5);
                 z-index: 999;
             }
             
-            .mobile-overlay.active {
-                display: block;
-            }
+            .mobile-overlay.active { display: block; }
             
             .hero {
-                padding: 7rem 1.5rem 3rem;
+                padding: 7rem 1.25rem 3rem;
             }
             
-            .hero-title {
-                font-size: 2rem;
-            }
-            
-            .hero-subtitle {
-                font-size: 1rem;
-            }
+            .hero-title { font-size: 2.25rem; }
             
             .hero-actions {
                 flex-direction: column;
-                gap: 1rem;
             }
             
             .hero-actions .btn {
                 width: 100%;
                 justify-content: center;
+            }
+            
+            .score-dashboard {
+                grid-template-columns: 1fr;
             }
             
             .features-grid {
@@ -961,37 +1206,36 @@
                 align-items: center;
             }
             
-            .cta-container {
-                padding: 2rem;
-            }
-            
-            .cta-title {
-                font-size: 1.5rem;
-            }
-            
-            .integrations-grid {
-                gap: 2rem;
-            }
+            .step-number::after { display: none; }
             
             .faq-grid {
                 grid-template-columns: 1fr;
             }
             
-            .footer-grid {
-                grid-template-columns: 1fr;
-                text-align: center;
+            .cta-container {
+                padding: 2.5rem 1.5rem;
             }
+            
+            .cta-title { font-size: 1.75rem; }
+            
+            .stats-container {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+            
+            .stat-value { font-size: 2rem; }
         }
     </style>
 </head>
 <body>
-    <!-- Background Effects -->
-    <div class="bg-effects">
-        <div class="orb orb-1"></div>
-        <div class="orb orb-2"></div>
-        <div class="orb orb-3"></div>
-    </div>
-    <div class="grid-pattern"></div>
+    <!-- Particle Network Canvas -->
+    <canvas id="particleCanvas"></canvas>
+    
+    <!-- Scan Line Effect -->
+    <div class="scan-line"></div>
+    
+    <!-- Floating Verification Icons -->
+    <div class="floating-icons" id="floatingIcons"></div>
     
     <!-- Navigation -->
     <nav class="nav">
@@ -1000,7 +1244,6 @@
             <span class="nav-title">HalluciDetect</span>
         </a>
         
-        <!-- Mobile hamburger menu -->
         <button class="nav-hamburger" id="navHamburger" aria-label="Toggle menu">
             <span class="hamburger-line"></span>
             <span class="hamburger-line"></span>
@@ -1021,27 +1264,27 @@
         <div class="hero-container">
             <div class="hero-content">
                 <div class="hero-badge">
-                    <span class="hero-badge-dot"></span>
-                    Open Source Platform
+                    <span class="badge-pulse"></span>
+                    Live Detection Engine Active
                 </div>
                 <h1 class="hero-title">
-                    Detect <span class="hero-title-gradient">Hallucinations</span> in LLM Outputs
+                    <span class="title-highlight">Real-Time</span><br>
+                    <span class="title-gradient">Hallucination</span><br>
+                    Detection
                 </h1>
                 <p class="hero-subtitle">
-                    Automatically evaluate AI-generated content for factual accuracy. 
-                    Leverage semantic analysis, fact-checking, and rule-based scoring 
-                    to ensure trustworthy outputs.
+                    Watch AI outputs being analyzed in real-time. Multi-method fact verification, 
+                    semantic analysis, and pattern detection working together to ensure accuracy.
                 </p>
                 <div class="hero-actions">
                     <a href="{{ url_for('register') }}" class="btn btn-primary">
-                        Start Evaluating
+                        Start Detecting
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M5 12h14"/>
-                            <path d="m12 5 7 7-7 7"/>
+                            <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
                         </svg>
                     </a>
                     <a href="https://github.com/rishi02102017/HalluciDetect" target="_blank" class="btn btn-secondary">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
                             <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                         </svg>
                         View Source
@@ -1049,41 +1292,80 @@
                 </div>
             </div>
             
-            <!-- Live Demo Preview -->
+            <!-- Live Detection Demo -->
             <div class="hero-demo">
-                <div class="demo-window">
-                    <div class="demo-header">
-                        <div class="demo-dot demo-dot-red"></div>
-                        <div class="demo-dot demo-dot-yellow"></div>
-                        <div class="demo-dot demo-dot-green"></div>
-                        <span class="demo-title">Evaluation Result</span>
-                    </div>
-                    <div class="demo-body">
-                        <div class="demo-section">
-                            <div class="demo-label">Prompt</div>
-                            <div class="demo-input" id="demo-prompt">When was Python programming language created?</div>
+                <div class="demo-wrapper">
+                    <div class="demo-window">
+                        <div class="demo-header">
+                            <div class="demo-dot red"></div>
+                            <div class="demo-dot yellow"></div>
+                            <div class="demo-dot green"></div>
+                            <span class="demo-title-bar">evaluation_result.json</span>
                         </div>
-                        <div class="demo-section">
-                            <div class="demo-label">LLM Output Analysis</div>
-                            <div class="demo-output">
-                                <div class="demo-text" id="demo-analysis">
-                                    <span class="verified">Python was created by Guido van Rossum</span> and was first released in <span class="hallucination">1995</span>. It has since become <span class="verified">one of the most popular programming languages</span> in the world.
-                                </div>
-                                <div class="demo-result">
-                                    <div class="demo-score">
-                                        <div class="score-circle score-high" id="demo-score">67%</div>
-                                        <div>
-                                            <div class="score-label">Hallucination Score</div>
-                                            <div class="score-value">Potential Issues Detected</div>
-                                        </div>
-                                    </div>
-                                    <div class="demo-status">
-                                        <svg class="demo-status-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <circle cx="12" cy="12" r="10"/>
-                                            <line x1="12" y1="8" x2="12" y2="12"/>
-                                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        <div class="demo-body">
+                            <!-- SVG Gradient for Gauge -->
+                            <svg width="0" height="0">
+                                <defs>
+                                    <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" style="stop-color:#22c55e"/>
+                                        <stop offset="50%" style="stop-color:#f59e0b"/>
+                                        <stop offset="100%" style="stop-color:#ef4444"/>
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            
+                            <!-- Live Text Stream -->
+                            <div class="stream-container">
+                                <span class="stream-label">Live Analysis</span>
+                                <div class="stream-text" id="streamText"></div>
+                            </div>
+                            
+                            <!-- Score Dashboard -->
+                            <div class="score-dashboard">
+                                <div class="score-gauge">
+                                    <div class="gauge-ring">
+                                        <svg viewBox="0 0 100 100">
+                                            <circle class="gauge-bg" cx="50" cy="50" r="40"/>
+                                            <circle class="gauge-fill" id="gaugeFill" cx="50" cy="50" r="40"/>
                                         </svg>
-                                        Review Required
+                                        <span class="gauge-value" id="gaugeValue">0%</span>
+                                    </div>
+                                    <span class="gauge-label">Hallucination Score</span>
+                                </div>
+                                
+                                <div class="method-card">
+                                    <div class="method-item">
+                                        <span class="method-name">
+                                            <svg class="method-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                                                <path d="m9 12 2 2 4-4"/>
+                                            </svg>
+                                            Fact Check
+                                        </span>
+                                        <span class="method-score" id="factScore">--</span>
+                                        <div class="method-bar"><div class="method-bar-fill" id="factBar" style="width: 0%; background: var(--success);"></div></div>
+                                    </div>
+                                    <div class="method-item">
+                                        <span class="method-name">
+                                            <svg class="method-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <circle cx="12" cy="12" r="10"/>
+                                                <path d="M12 6v6l4 2"/>
+                                            </svg>
+                                            Semantic
+                                        </span>
+                                        <span class="method-score" id="semanticScore">--</span>
+                                        <div class="method-bar"><div class="method-bar-fill" id="semanticBar" style="width: 0%; background: var(--warning);"></div></div>
+                                    </div>
+                                    <div class="method-item">
+                                        <span class="method-name">
+                                            <svg class="method-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M3 3v18h18"/>
+                                                <path d="m19 9-5 5-4-4-3 3"/>
+                                            </svg>
+                                            Pattern
+                                        </span>
+                                        <span class="method-score" id="patternScore">--</span>
+                                        <div class="method-bar"><div class="method-bar-fill" id="patternBar" style="width: 0%; background: var(--accent);"></div></div>
                                     </div>
                                 </div>
                             </div>
@@ -1094,56 +1376,79 @@
         </div>
     </section>
     
+    <!-- Live Stats Bar -->
+    <section class="stats-bar">
+        <div class="stats-container">
+            <div class="stat-item">
+                <div class="stat-value" id="statEvals">12,847</div>
+                <div class="stat-label">Evaluations Run</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="statDetected">3,291</div>
+                <div class="stat-label">Hallucinations Detected</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="statModels">20+</div>
+                <div class="stat-label">Models Supported</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="statAccuracy">94.7%</div>
+                <div class="stat-label">Detection Accuracy</div>
+            </div>
+        </div>
+    </section>
+    
     <!-- Features Section -->
     <section class="features" id="features">
         <div class="features-container">
             <div class="section-header">
-                <div class="section-label">Capabilities</div>
-                <h2 class="section-title">Comprehensive Evaluation Suite</h2>
+                <div class="section-tag">Capabilities</div>
+                <h2 class="section-title">Multi-Method Detection Engine</h2>
                 <p class="section-subtitle">
-                    Multi-layered analysis to detect inaccuracies and hallucinations in AI-generated content
+                    Three-layer verification system combining knowledge bases, 
+                    semantic analysis, and pattern recognition for comprehensive accuracy.
                 </p>
             </div>
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
                             <path d="m9 12 2 2 4-4"/>
                         </svg>
                     </div>
                     <h3 class="feature-title">Fact Verification</h3>
                     <p class="feature-description">
-                        Cross-reference claims against Wikipedia and trusted knowledge bases for real-time factual accuracy checks.
+                        Cross-reference claims against Google Fact Check API, Wikipedia, and custom knowledge bases in real-time.
                     </p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="10"/>
                             <path d="M12 6v6l4 2"/>
                         </svg>
                     </div>
                     <h3 class="feature-title">Semantic Analysis</h3>
                     <p class="feature-description">
-                        Compare outputs against reference answers using TF-IDF and embedding similarity for semantic alignment.
+                        TF-IDF and embedding similarity detect semantic drift from reference answers with precision.
                     </p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M3 3v18h18"/>
                             <path d="m19 9-5 5-4-4-3 3"/>
                         </svg>
                     </div>
                     <h3 class="feature-title">Trend Analytics</h3>
                     <p class="feature-description">
-                        Track hallucination rates over time. Compare performance across different models and prompt versions.
+                        Track hallucination rates over time. Compare model performance across versions and prompts.
                     </p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect width="18" height="18" x="3" y="3" rx="2"/>
                             <path d="M3 9h18"/>
                             <path d="M9 21V9"/>
@@ -1151,12 +1456,12 @@
                     </div>
                     <h3 class="feature-title">Template Library</h3>
                     <p class="feature-description">
-                        Use pre-built evaluation templates or create custom ones for consistent testing across use cases.
+                        Pre-built evaluation templates for Q&A, summarization, translation, and code generation.
                     </p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                             <polyline points="17 8 12 3 7 8"/>
                             <line x1="12" y1="3" x2="12" y2="15"/>
@@ -1164,20 +1469,20 @@
                     </div>
                     <h3 class="feature-title">Batch Processing</h3>
                     <p class="feature-description">
-                        Import CSV files for bulk evaluation. Export comprehensive results for further analysis.
+                        Import CSV/JSON for bulk evaluation. Export PDF reports and structured results.
                     </p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                             <path d="M2 17l10 5 10-5"/>
                             <path d="M2 12l10 5 10-5"/>
                         </svg>
                     </div>
-                    <h3 class="feature-title">Multi-Model Support</h3>
+                    <h3 class="feature-title">Multi-Model</h3>
                     <p class="feature-description">
-                        Evaluate outputs from OpenAI, Anthropic, and open-source models via OpenRouter integration.
+                        Evaluate GPT-4o, Claude 3.5, Gemini 2.0, Llama 3.3, and 20+ models via OpenRouter.
                     </p>
                 </div>
             </div>
@@ -1185,57 +1490,57 @@
     </section>
     
     <!-- Supported Models -->
-    <section class="integrations">
-        <div class="integrations-container">
-            <div class="integrations-label">Integrated with leading AI providers</div>
-            <div class="integrations-grid">
-                <div class="integration-item">
-                    <div class="integration-logo">
+    <section class="models">
+        <div class="models-container">
+            <div class="models-label">Integrated with leading AI providers</div>
+            <div class="models-grid">
+                <div class="model-item">
+                    <div class="model-logo">
                         <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08-4.778 2.758a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
+                            <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073z"/>
                         </svg>
                     </div>
-                    <span class="integration-name">OpenAI</span>
+                    <span class="model-name">OpenAI</span>
                 </div>
-                <div class="integration-item">
-                    <div class="integration-logo">
+                <div class="model-item">
+                    <div class="model-logo">
                         <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93z"/>
                         </svg>
                     </div>
-                    <span class="integration-name">Anthropic</span>
+                    <span class="model-name">Anthropic</span>
                 </div>
-                <div class="integration-item">
-                    <div class="integration-logo">
+                <div class="model-item">
+                    <div class="model-logo">
                         <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.833.94z"/>
+                            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0z"/>
                         </svg>
                     </div>
-                    <span class="integration-name">OpenRouter</span>
+                    <span class="model-name">Google</span>
                 </div>
-                <div class="integration-item">
-                    <div class="integration-logo">
+                <div class="model-item">
+                    <div class="model-logo">
                         <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12.001 0C5.326 0 0 5.326 0 12.001c0 5.326 3.48 9.831 8.268 11.424-.12-1.073-.227-2.723.048-3.897.248-1.062 1.599-6.782 1.599-6.782s-.408-.817-.408-2.024c0-1.896 1.099-3.312 2.467-3.312 1.164 0 1.726.874 1.726 1.922 0 1.17-.746 2.922-1.13 4.545-.32 1.357.68 2.463 2.016 2.463 2.42 0 4.279-2.551 4.279-6.232 0-3.26-2.342-5.539-5.687-5.539-3.873 0-6.148 2.906-6.148 5.908 0 1.171.45 2.427 1.012 3.11.11.135.127.252.094.39-.104.43-.335 1.357-.38 1.547-.06.249-.195.302-.45.182-1.678-.781-2.727-3.232-2.727-5.201 0-4.234 3.078-8.126 8.878-8.126 4.66 0 8.28 3.322 8.28 7.762 0 4.63-2.92 8.358-6.975 8.358-1.362 0-2.643-.708-3.082-1.544 0 0-.674 2.57-.838 3.198-.304 1.165-1.124 2.625-1.675 3.515 1.26.39 2.598.599 3.987.599 6.675 0 12.001-5.326 12.001-12.001C24.002 5.326 18.676 0 12.001 0z"/>
+                            <path d="M12 0L1.75 6v12L12 24l10.25-6V6L12 0z"/>
                         </svg>
                     </div>
-                    <span class="integration-name">Llama</span>
+                    <span class="model-name">Meta</span>
                 </div>
-                <div class="integration-item">
-                    <div class="integration-logo">
+                <div class="model-item">
+                    <div class="model-logo">
                         <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 0L1.75 6v12L12 24l10.25-6V6L12 0zm-1.775 18l-3.975-2.35V8.35L10.225 6v12zm1.775 1.35L8.225 17V7l3.775-2.35L15.775 7v10l-3.775 2.35zm5.75-3.7L13.775 18V6l3.975 2.35v7.3z"/>
+                            <circle cx="12" cy="12" r="10"/>
                         </svg>
                     </div>
-                    <span class="integration-name">Gemma</span>
+                    <span class="model-name">Mistral</span>
                 </div>
-                <div class="integration-item">
-                    <div class="integration-logo">
+                <div class="model-item">
+                    <div class="model-logo">
                         <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12.001 0C5.326 0 0 5.326 0 12.001c0 6.674 5.326 11.999 12.001 11.999 6.674 0 11.999-5.325 11.999-11.999C24 5.326 18.675 0 12.001 0zm0 3.6a8.399 8.399 0 0 1 8.399 8.401 8.399 8.399 0 0 1-8.399 8.399 8.399 8.399 0 0 1-8.401-8.399A8.399 8.399 0 0 1 12.001 3.6zm0 2.4a5.999 5.999 0 0 0-6 6.001 5.999 5.999 0 0 0 6 5.999 5.999 5.999 0 0 0 6.001-5.999A5.999 5.999 0 0 0 12.001 6z"/>
+                            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0z"/>
                         </svg>
                     </div>
-                    <span class="integration-name">Mistral</span>
+                    <span class="model-name">Qwen</span>
                 </div>
             </div>
         </div>
@@ -1245,31 +1550,31 @@
     <section class="how-it-works" id="how-it-works">
         <div class="steps-container">
             <div class="section-header">
-                <div class="section-label">Process</div>
+                <div class="section-tag">Process</div>
                 <h2 class="section-title">How It Works</h2>
                 <p class="section-subtitle">
-                    Three simple steps to evaluate your LLM outputs for accuracy
+                    Three steps to evaluate your LLM outputs for factual accuracy
                 </p>
             </div>
             <div class="step">
                 <div class="step-number">1</div>
                 <div class="step-content">
                     <h3>Submit Your Prompt</h3>
-                    <p>Enter the prompt you want to evaluate along with an optional reference answer for comparison. Select the model to test.</p>
+                    <p>Enter the prompt and optional reference answer. Select from 20+ supported LLM models to evaluate.</p>
                 </div>
             </div>
             <div class="step">
                 <div class="step-number">2</div>
                 <div class="step-content">
                     <h3>Automated Analysis</h3>
-                    <p>The system queries the LLM, then analyzes the response using fact-checking APIs, semantic similarity scoring, and rule-based detection patterns.</p>
+                    <p>The engine queries the LLM, then runs fact-checking, semantic similarity, and pattern detection in parallel.</p>
                 </div>
             </div>
             <div class="step">
                 <div class="step-number">3</div>
                 <div class="step-content">
                     <h3>Review Results</h3>
-                    <p>Receive a detailed hallucination score with breakdown by detection method. Track trends and compare results across evaluations in your dashboard.</p>
+                    <p>Get a detailed hallucination score with method breakdowns. Track trends and export reports from your dashboard.</p>
                 </div>
             </div>
         </div>
@@ -1279,60 +1584,53 @@
     <section class="faq" id="faq">
         <div class="faq-container">
             <div class="section-header">
-                <div class="section-label">FAQ</div>
-                <h2 class="section-title">Frequently Asked Questions</h2>
+                <div class="section-tag">FAQ</div>
+                <h2 class="section-title">Common Questions</h2>
                 <p class="section-subtitle">
-                    Common questions about hallucination detection and the platform
+                    Everything you need to know about hallucination detection
                 </p>
             </div>
             <div class="faq-grid">
                 <div class="faq-item">
                     <h3 class="faq-question">What is an LLM hallucination?</h3>
                     <p class="faq-answer">
-                        A hallucination occurs when an AI model generates information that sounds plausible but is factually incorrect, 
-                        fabricated, or inconsistent with the provided context. This can include made-up facts, incorrect dates, 
-                        non-existent references, or logically inconsistent statements.
+                        A hallucination occurs when an AI generates plausible-sounding but factually incorrect information, 
+                        including made-up facts, wrong dates, or non-existent references.
                     </p>
                 </div>
                 <div class="faq-item">
-                    <h3 class="faq-question">How is the hallucination score calculated?</h3>
+                    <h3 class="faq-question">How is the score calculated?</h3>
                     <p class="faq-answer">
-                        The score combines three detection methods: fact verification against knowledge bases (Wikipedia API), 
-                        semantic similarity comparison with reference answers using TF-IDF, and rule-based pattern detection 
-                        for common hallucination indicators. Each method contributes to a weighted final score.
+                        The score combines fact verification (40%), semantic similarity (30%), and pattern detection (30%) 
+                        using Wikipedia, Google Fact Check API, and TF-IDF analysis.
                     </p>
                 </div>
                 <div class="faq-item">
-                    <h3 class="faq-question">Which LLM models are supported?</h3>
+                    <h3 class="faq-question">Which models are supported?</h3>
                     <p class="faq-answer">
-                        HalluciDetect supports the latest models from OpenAI (GPT-4o, o1-preview, o1-mini), 
-                        Anthropic (Claude 3.5 Sonnet, Claude 3.5 Haiku), Google (Gemini 2.0 Flash, Gemini 1.5 Pro), 
-                        Meta (Llama 3.3, Llama 3.2), and free models via OpenRouter including Qwen 2.5 and Mistral 7B. 
-                        Compare hallucination rates across 20+ models from different providers.
+                        GPT-4o, o1-preview, Claude 3.5 Sonnet/Haiku, Gemini 2.0 Flash, Llama 3.3/3.2, Qwen 2.5, Mistral 7B, 
+                        and more via OpenRouter integration.
+                    </p>
+                </div>
+                <div class="faq-item">
+                    <h3 class="faq-question">Is there an API?</h3>
+                    <p class="faq-answer">
+                        Yes, all functionality is accessible via REST API with JWT authentication. 
+                        Programmatically submit evaluations and retrieve results.
                     </p>
                 </div>
                 <div class="faq-item">
                     <h3 class="faq-question">Is my data secure?</h3>
                     <p class="faq-answer">
-                        Your evaluation data is stored securely and associated only with your account. 
-                        We do not share or sell your data. The platform is open source, so you can audit 
-                        the code or self-host if you prefer complete control over your data.
+                        Data is stored securely and scoped to your account. The platform is open source — 
+                        audit the code or self-host for complete control.
                     </p>
                 </div>
                 <div class="faq-item">
-                    <h3 class="faq-question">Can I use this for production systems?</h3>
+                    <h3 class="faq-question">Can I use this in production?</h3>
                     <p class="faq-answer">
-                        Yes. HalluciDetect is designed for both research and production use cases. 
-                        You can integrate it into your CI/CD pipeline for automated testing, use the batch import 
-                        feature for large-scale evaluations, or monitor hallucination trends over time.
-                    </p>
-                </div>
-                <div class="faq-item">
-                    <h3 class="faq-question">Is there an API available?</h3>
-                    <p class="faq-answer">
-                        Yes, all evaluation functionality is accessible via REST API endpoints. 
-                        You can programmatically submit evaluations, retrieve results, and export data. 
-                        Authentication is required via your account credentials.
+                        Absolutely. Integrate into CI/CD pipelines, use batch import for large-scale testing, 
+                        and monitor hallucination trends over time.
                     </p>
                 </div>
             </div>
@@ -1344,13 +1642,12 @@
         <div class="cta-container">
             <h2 class="cta-title">Start Detecting Hallucinations</h2>
             <p class="cta-subtitle">
-                Evaluate your LLM outputs for factual accuracy. Free and open source.
+                Evaluate your LLM outputs for factual accuracy. Free, open source, production-ready.
             </p>
             <a href="{{ url_for('register') }}" class="btn btn-primary">
                 Create Free Account
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M5 12h14"/>
-                    <path d="m12 5 7 7-7 7"/>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
                 </svg>
             </a>
         </div>
@@ -1360,84 +1657,312 @@
     <footer class="footer">
         <p class="footer-text">
             Built by <a href="https://github.com/rishi02102017" target="_blank">Jyotishman Das</a>
-            &nbsp;&middot;&nbsp;
+            &nbsp;·&nbsp;
             <a href="https://github.com/rishi02102017/HalluciDetect" target="_blank">GitHub Repository</a>
         </p>
     </footer>
     
     <script>
-        // Scroll Animation Observer
+        // ============================================
+        // PARTICLE NETWORK
+        // ============================================
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let mouse = { x: null, y: null };
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        document.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = (Math.random() - 0.5) * 0.5;
+                this.radius = Math.random() * 2 + 1;
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+                
+                // Mouse interaction
+                if (mouse.x && mouse.y) {
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 150) {
+                        this.x -= dx * 0.01;
+                        this.y -= dy * 0.01;
+                    }
+                }
+            }
+            
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(99, 102, 241, 0.5)';
+                ctx.fill();
+            }
+        }
+        
+        function initParticles() {
+            const numParticles = Math.min(80, Math.floor((canvas.width * canvas.height) / 15000));
+            particles = [];
+            for (let i = 0; i < numParticles; i++) {
+                particles.push(new Particle());
+            }
+        }
+        initParticles();
+        
+        function connectParticles() {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < 150) {
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.strokeStyle = `rgba(99, 102, 241, ${0.15 - dist / 1000})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let p of particles) {
+                p.update();
+                p.draw();
+            }
+            connectParticles();
+            
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+        
+        // ============================================
+        // FLOATING ICONS
+        // ============================================
+        const icons = ['✓', '⚠', '◉', '✗', '◎', '⬡'];
+        const floatingContainer = document.getElementById('floatingIcons');
+        
+        function createFloatingIcon() {
+            const icon = document.createElement('span');
+            icon.className = 'float-icon';
+            icon.textContent = icons[Math.floor(Math.random() * icons.length)];
+            icon.style.left = Math.random() * 100 + '%';
+            icon.style.animationDuration = (15 + Math.random() * 10) + 's';
+            icon.style.animationDelay = Math.random() * 5 + 's';
+            floatingContainer.appendChild(icon);
+            
+            setTimeout(() => icon.remove(), 25000);
+        }
+        
+        setInterval(createFloatingIcon, 2000);
+        for (let i = 0; i < 8; i++) createFloatingIcon();
+        
+        // ============================================
+        // LIVE TEXT STREAM DEMO
+        // ============================================
+        const demoTexts = [
+            {
+                text: "Python was created by {Guido van Rossum} and first released in {1991}. The language emphasizes {code readability} and has become one of the most {popular programming languages} worldwide.",
+                facts: ["Guido van Rossum", "code readability", "popular programming languages"],
+                hallucinations: [],
+                score: 12
+            },
+            {
+                text: "The Eiffel Tower stands at {324 meters} tall and was completed in [1892]. It attracts over {7 million visitors} annually and is located in {Paris, France}.",
+                facts: ["324 meters", "7 million visitors", "Paris, France"],
+                hallucinations: ["1892"],
+                score: 68
+            },
+            {
+                text: "Machine learning is a subset of {artificial intelligence} that enables systems to [automatically generate their own training data]. It uses {statistical techniques} for pattern recognition.",
+                facts: ["artificial intelligence", "statistical techniques"],
+                hallucinations: ["automatically generate their own training data"],
+                score: 45
+            },
+            {
+                text: "The speed of light is approximately {299,792 km/s} in a vacuum. Einstein's theory of {relativity} revolutionized our understanding of {space and time}.",
+                facts: ["299,792 km/s", "relativity", "space and time"],
+                hallucinations: [],
+                score: 8
+            }
+        ];
+        
+        let currentDemoIndex = 0;
+        const streamTextEl = document.getElementById('streamText');
+        const gaugeFill = document.getElementById('gaugeFill');
+        const gaugeValue = document.getElementById('gaugeValue');
+        const factScore = document.getElementById('factScore');
+        const semanticScore = document.getElementById('semanticScore');
+        const patternScore = document.getElementById('patternScore');
+        const factBar = document.getElementById('factBar');
+        const semanticBar = document.getElementById('semanticBar');
+        const patternBar = document.getElementById('patternBar');
+        
+        async function typeText(demo) {
+            streamTextEl.innerHTML = '';
+            const text = demo.text;
+            let html = '';
+            let i = 0;
+            
+            // Reset scores
+            updateGauge(0);
+            updateMethodScores(0, 0, 0);
+            
+            const typeInterval = setInterval(() => {
+                if (i < text.length) {
+                    let char = text[i];
+                    
+                    // Check for fact markers
+                    if (char === '{') {
+                        const end = text.indexOf('}', i);
+                        const fact = text.substring(i + 1, end);
+                        html += `<span class="verified">${fact}</span>`;
+                        i = end + 1;
+                    } else if (char === '[') {
+                        const end = text.indexOf(']', i);
+                        const hall = text.substring(i + 1, end);
+                        html += `<span class="hallucination">${hall}</span>`;
+                        i = end + 1;
+                    } else {
+                        html += char;
+                        i++;
+                    }
+                    
+                    streamTextEl.innerHTML = html + '<span class="cursor-blink"></span>';
+                } else {
+                    clearInterval(typeInterval);
+                    
+                    // Animate scores
+                    setTimeout(() => {
+                        updateGauge(demo.score);
+                        const factVal = 100 - demo.score + Math.random() * 20 - 10;
+                        const semVal = 100 - demo.score + Math.random() * 15 - 7;
+                        const patVal = 100 - demo.score + Math.random() * 25 - 12;
+                        updateMethodScores(factVal, semVal, patVal);
+                    }, 300);
+                    
+                    // Next demo
+                    setTimeout(() => {
+                        currentDemoIndex = (currentDemoIndex + 1) % demoTexts.length;
+                        typeText(demoTexts[currentDemoIndex]);
+                    }, 5000);
+                }
+            }, 30);
+        }
+        
+        function updateGauge(score) {
+            const circumference = 2 * Math.PI * 40;
+            const offset = circumference - (score / 100) * circumference;
+            gaugeFill.style.strokeDashoffset = offset;
+            gaugeValue.textContent = score + '%';
+            
+            // Color based on score
+            if (score < 30) {
+                gaugeValue.style.color = '#22c55e';
+            } else if (score < 60) {
+                gaugeValue.style.color = '#f59e0b';
+            } else {
+                gaugeValue.style.color = '#ef4444';
+            }
+        }
+        
+        function updateMethodScores(fact, semantic, pattern) {
+            factScore.textContent = Math.round(Math.min(100, Math.max(0, fact))) + '%';
+            semanticScore.textContent = Math.round(Math.min(100, Math.max(0, semantic))) + '%';
+            patternScore.textContent = Math.round(Math.min(100, Math.max(0, pattern))) + '%';
+            
+            factBar.style.width = Math.min(100, Math.max(0, fact)) + '%';
+            semanticBar.style.width = Math.min(100, Math.max(0, semantic)) + '%';
+            patternBar.style.width = Math.min(100, Math.max(0, pattern)) + '%';
+            
+            // Color classes
+            factScore.className = 'method-score ' + (fact > 70 ? 'good' : fact > 40 ? 'warn' : 'bad');
+            semanticScore.className = 'method-score ' + (semantic > 70 ? 'good' : semantic > 40 ? 'warn' : 'bad');
+            patternScore.className = 'method-score ' + (pattern > 70 ? 'good' : pattern > 40 ? 'warn' : 'bad');
+        }
+        
+        // Start demo
+        setTimeout(() => typeText(demoTexts[0]), 1000);
+        
+        // ============================================
+        // LIVE STATS COUNTER
+        // ============================================
+        function animateCounter(el, target) {
+            const current = parseInt(el.textContent.replace(/,/g, '')) || 0;
+            const increment = Math.ceil((target - current) / 20);
+            
+            if (current < target) {
+                el.textContent = (current + increment).toLocaleString();
+                setTimeout(() => animateCounter(el, target), 50);
+            } else {
+                el.textContent = target.toLocaleString();
+            }
+        }
+        
+        // Periodically increment stats
+        setInterval(() => {
+            const evalEl = document.getElementById('statEvals');
+            const detectEl = document.getElementById('statDetected');
+            const current = parseInt(evalEl.textContent.replace(/,/g, ''));
+            evalEl.textContent = (current + Math.floor(Math.random() * 3 + 1)).toLocaleString();
+            
+            if (Math.random() > 0.6) {
+                const detected = parseInt(detectEl.textContent.replace(/,/g, ''));
+                detectEl.textContent = (detected + 1).toLocaleString();
+            }
+        }, 3000);
+        
+        // ============================================
+        // SCROLL ANIMATIONS
+        // ============================================
         const observerOptions = {
             threshold: 0.1,
             rootMargin: '0px 0px -50px 0px'
         };
         
         const observer = new IntersectionObserver((entries) => {
-            entries.forEach((entry, index) => {
+            entries.forEach((entry) => {
                 if (entry.isIntersecting) {
-                    setTimeout(() => {
-                        entry.target.classList.add('visible');
-                    }, index * 100);
+                    entry.target.classList.add('visible');
                 }
             });
         }, observerOptions);
         
-        // Observe feature cards
-        document.querySelectorAll('.feature-card').forEach((card, index) => {
-            card.style.transitionDelay = `${index * 0.1}s`;
-            observer.observe(card);
+        document.querySelectorAll('.feature-card, .step, .faq-item').forEach((el, index) => {
+            el.style.transitionDelay = `${index * 0.1}s`;
+            observer.observe(el);
         });
         
-        // Observe steps
-        document.querySelectorAll('.step').forEach((step, index) => {
-            step.style.transition = `all 0.6s ease ${index * 0.15}s`;
-            observer.observe(step);
-        });
-        
-        // Observe FAQ items
-        document.querySelectorAll('.faq-item').forEach((item, index) => {
-            item.style.transitionDelay = `${index * 0.1}s`;
-            observer.observe(item);
-        });
-        
-        // Smooth scroll for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function(e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            });
-        });
-        
-        // Demo Animation - Cycle through different scores
-        const demoScores = [
-            { score: '67%', status: 'Potential Issues Detected', class: 'score-high' },
-            { score: '23%', status: 'Mostly Accurate', class: 'score-low' },
-            { score: '84%', status: 'High Risk Detected', class: 'score-high' },
-            { score: '12%', status: 'Verified Content', class: 'score-low' }
-        ];
-        
-        let currentScoreIndex = 0;
-        
-        setInterval(() => {
-            currentScoreIndex = (currentScoreIndex + 1) % demoScores.length;
-            const scoreEl = document.getElementById('demo-score');
-            const current = demoScores[currentScoreIndex];
-            
-            scoreEl.style.opacity = '0';
-            setTimeout(() => {
-                scoreEl.textContent = current.score;
-                scoreEl.style.opacity = '1';
-            }, 200);
-        }, 4000);
-        
-        // Mobile hamburger menu
+        // ============================================
+        // MOBILE MENU
+        // ============================================
         const hamburger = document.getElementById('navHamburger');
         const navLinks = document.getElementById('navLinks');
         
-        // Create mobile overlay
         const overlay = document.createElement('div');
         overlay.className = 'mobile-overlay';
         document.body.appendChild(overlay);
@@ -1456,13 +1981,25 @@
             document.body.style.overflow = '';
         });
         
-        // Close menu when clicking nav links
         navLinks.querySelectorAll('a').forEach(link => {
             link.addEventListener('click', () => {
                 hamburger.classList.remove('active');
                 navLinks.classList.remove('active');
                 overlay.classList.remove('active');
                 document.body.style.overflow = '';
+            });
+        });
+        
+        // ============================================
+        // SMOOTH SCROLL
+        // ============================================
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             });
         });
     </script>

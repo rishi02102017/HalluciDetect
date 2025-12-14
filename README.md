@@ -9,18 +9,18 @@
 </p>
 
 <p align="center">
-  <em>Version 1.1.0</em>
+  <em>Version 1.2.0</em>
 </p>
 
 <p align="center">
-  A comprehensive pipeline for automatically evaluating LLM outputs for hallucinations using fact-check APIs, semantic similarity, and rule-based scoring. Features a professional dashboard with user authentication, prompt templates library, and hallucination rate trends across different prompt versions and models.
+  A comprehensive pipeline for automatically evaluating LLM outputs for hallucinations using Google Fact Check API, Wikipedia, custom knowledge bases, semantic similarity, and rule-based scoring. Features a professional dashboard with user authentication, JWT API access, prompt templates, PDF reports, and hallucination rate trends across models.
 </p>
 
 <p align="center">
   <a href="https://hallucidetect.onrender.com">🚀 Live Demo</a> •
   <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
-  <a href="#usage">Usage</a>
+  <a href="#api-documentation">API Docs</a>
 </p>
 
 ---
@@ -47,11 +47,13 @@ flowchart TB
 
     subgraph External["External Services"]
         LLM[LLM Providers]
-        FactAPI[Fact-Check APIs]
+        FactAPI[Google Fact Check API]
+        WikiAPI[Wikipedia API]
     end
 
     subgraph Storage["Data Layer"]
-        DB[(SQLite Database)]
+        DB[(PostgreSQL/SQLite)]
+        KB[Knowledge Base]
     end
 
     UI --> Flask
@@ -463,45 +465,60 @@ mindmap
 ### Core Evaluation
 - **Multi-method Evaluation**: Combines fact-checking, semantic similarity, and rule-based scoring
 - **LLM Integration**: Supports OpenAI, Anthropic, and 100+ models via OpenRouter
-- **Wikipedia API Integration**: Enhanced fact verification using Wikipedia knowledge base
+- **Google Fact Check API**: FREE fact verification using Google's Fact Check Tools
+- **Wikipedia API Integration**: Enhanced entity verification using Wikipedia knowledge
+- **Custom Knowledge Base**: Upload and manage your own verified facts for domain-specific evaluation
 - **Batch Evaluation**: Evaluate multiple test cases at once
 - **Trend Analysis**: Track hallucination rates across prompt versions and models
 
 ### User Experience
 - **User Authentication**: Secure registration, login, and session management with Flask-Login
+- **JWT API Authentication**: Token-based API access for programmatic integrations
 - **User Profiles**: Personal dashboard with account statistics and evaluation history
 - **Prompt Templates Library**: Pre-built and custom templates for common evaluation scenarios
-- **CSV Import/Export**: Bulk import test cases and export evaluation results
+- **CSV/JSON Import/Export**: Bulk import test cases and export evaluation results
+- **PDF Reports**: Generate professional PDF reports of evaluation results
 - **Professional Landing Page**: Animated, interactive introduction with live demo
 
 ### Technical
+- **PostgreSQL Support**: Production-ready database with connection pooling
+- **SQLite Fallback**: Zero-config local development database
 - **Interactive Dashboard**: Professional dark-themed web interface with Plotly.js charts
 - **Protected Routes**: All API endpoints secured with authentication
+- **Database Backups**: Built-in backup utilities for data safety
 - **Open Redirect Prevention**: Security hardened authentication flow
-- **Database Storage**: SQLite database with user-scoped data isolation
 
 ## Project Structure
 
 ```
 .
 ├── app.py                    # Flask web application with routes & auth
-├── config.py                 # Configuration settings
-├── database.py               # Database models, CRUD, user management
+├── config.py                 # Configuration settings (PostgreSQL, JWT, etc.)
+├── database.py               # Database models, CRUD, user management, pooling
 ├── evaluator.py              # Main evaluation pipeline orchestrator
-├── fact_checker.py           # Fact extraction, verification, Wikipedia API
+├── fact_checker.py           # Fact extraction, Google/Wikipedia/KB verification
+├── google_factcheck.py       # Google Fact Check Tools API integration
+├── knowledge_base.py         # Custom knowledge base for verified facts
+├── jwt_auth.py               # JWT token authentication for API
+├── pdf_export.py             # PDF report generation with ReportLab
+├── backup_utils.py           # Database backup and restore utilities
 ├── llm_client.py             # Multi-provider LLM client
 ├── models.py                 # Data models (EvaluationResult, Batch)
 ├── rule_based_scorer.py      # Pattern and entity analysis
 ├── semantic_similarity.py    # TF-IDF based similarity (lightweight)
-├── requirements.txt          # Production dependencies (lightweight)
-├── requirements-dev.txt      # Development dependencies (includes ML models)
+├── requirements.txt          # Production dependencies
+├── requirements-dev.txt      # Development dependencies
 ├── static/
 │   ├── css/style.css         # Dashboard styling
 │   └── favicon.ico           # Site favicon
+├── knowledge_base/           # Custom facts storage (JSON files)
+├── backups/                  # Database backups directory
 └── templates/
     ├── auth/
     │   ├── login.html        # User login page
-    │   └── register.html     # User registration page
+    │   ├── register.html     # User registration page
+    │   ├── forgot_password.html  # Password reset request
+    │   └── reset_password.html   # Password reset form
     ├── base.html             # Shared layout with sidebar
     ├── landing.html          # Public landing page with animations
     ├── dashboard.html        # Overview with metrics
@@ -509,7 +526,7 @@ mindmap
     ├── evaluations.html      # Results history with CSV import
     ├── analytics.html        # Trend charts
     ├── templates.html        # Prompt templates library
-    ├── profile.html          # User profile page
+    ├── profile.html          # User profile & security settings
     └── settings.html         # Configuration panel
 ```
 
@@ -540,11 +557,28 @@ pip install -r requirements-dev.txt
 
 Create a `.env` file:
 ```env
+# LLM API Keys
 OPENROUTER_API_KEY=your_openrouter_api_key
 OPENAI_API_KEY=              # Optional
 ANTHROPIC_API_KEY=           # Optional
-DATABASE_URL=sqlite:///./evaluation_results.db
+
+# Database (PostgreSQL for production, SQLite for development)
+DATABASE_URL=postgresql://user:pass@host:5432/hallucidetect  # Production
+# DATABASE_URL=sqlite:///./evaluation_results.db             # Development
+
+# Database Connection Pool (PostgreSQL only)
+DB_POOL_SIZE=5
+DB_MAX_OVERFLOW=10
+DB_POOL_RECYCLE=3600
+
+# Security
 SECRET_KEY=your-secret-key-change-in-production
+JWT_SECRET_KEY=your-jwt-secret-key
+JWT_ACCESS_TOKEN_EXPIRES=3600   # 1 hour
+JWT_REFRESH_TOKEN_EXPIRES=604800  # 7 days
+
+# Knowledge Base
+KNOWLEDGE_BASE_PATH=./knowledge_base
 FLASK_ENV=development
 FLASK_DEBUG=True
 USE_LOCAL_EMBEDDINGS=false   # Set to 'true' for sentence-transformers (requires more RAM)
@@ -586,31 +620,86 @@ print(f"Confidence: {result.confidence}")
 
 ### REST API Endpoints
 
-All API endpoints (except `/api/models` and `/health`) require authentication.
+All API endpoints (except public ones) require authentication via session or JWT token.
 
+#### Authentication Endpoints
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/evaluate` | Evaluate a single prompt |
+| POST | `/api/auth/token` | Get JWT access & refresh tokens |
+| POST | `/api/auth/refresh` | Refresh JWT access token |
+| GET | `/api/auth/verify` | Verify JWT token validity |
+
+#### Evaluation Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/evaluate` | Evaluate a single prompt (session auth) |
+| POST | `/api/v1/evaluate` | Evaluate a single prompt (JWT auth) |
 | POST | `/api/evaluate/batch` | Evaluate multiple test cases |
 | POST | `/api/evaluate/csv` | Evaluate from uploaded CSV file |
+
+#### Results & Export
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | GET | `/api/results` | Get evaluation results for current user |
 | GET | `/api/results/export` | Export results as CSV |
+| GET | `/api/results/export/json` | Export results as JSON |
+| GET | `/api/results/export/pdf` | Export results as PDF report |
 | GET | `/api/batches` | Get batch evaluations |
 | GET | `/api/trends` | Get hallucination trends |
-| GET | `/api/models` | Get available models (public) |
+
+#### Templates
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | GET | `/api/templates` | Get prompt templates |
 | POST | `/api/templates` | Create new template |
 | GET | `/api/templates/<id>` | Get specific template |
 | DELETE | `/api/templates/<id>` | Delete a template |
+| GET | `/api/templates/export/json` | Export templates as JSON |
+| POST | `/api/templates/import/json` | Import templates from JSON |
+
+#### Knowledge Base
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/knowledge-base/search` | Search knowledge base |
+| POST | `/api/knowledge-base/verify` | Verify a claim |
+| POST | `/api/knowledge-base/facts` | Add a new fact |
+| GET | `/api/knowledge-base/stats` | Get KB statistics |
+
+#### System
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/models` | Get available models (public) |
 | GET | `/api/user` | Get current user info |
-| GET | `/health` | Health check endpoint (public) |
+| POST | `/api/backup` | Create database backup |
+| GET | `/api/backup/list` | List available backups |
+| GET | `/health` | Health check (public) |
+
+### JWT Authentication Example
+
+```bash
+# Get JWT token
+curl -X POST https://hallucidetect.onrender.com/api/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "yourpassword"}'
+
+# Use token for API calls
+curl -X POST https://hallucidetect.onrender.com/api/v1/evaluate \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is the capital of France?", "model_name": "gpt-4o-mini"}'
+```
 
 ## Evaluation Methods
 
 ### 1. Fact-Checking (40% weight)
-- Extracts factual claims using pattern matching
-- Verifies claims against reference text
-- Supports external fact-check APIs
+
+Multi-source fact verification using a cascade of methods:
+
+1. **Reference Text Check** - Compare against provided reference (highest priority)
+2. **Google Fact Check API** - FREE API from Google's Fact Check Tools
+3. **Custom Knowledge Base** - Your own verified facts (domain-specific)
+4. **Wikipedia API** - Entity verification using Wikipedia
+5. **Heuristic Analysis** - Pattern-based claim analysis (fallback)
 
 ### 2. Semantic Similarity (30% weight)
 - Uses lightweight TF-IDF by default (production-ready, no GPU required)

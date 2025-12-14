@@ -6,7 +6,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import create_engine, Column, String, Float, Boolean, DateTime, Text, JSON, Integer, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from config import Config
 from models import EvaluationResult, EvaluationBatch
@@ -26,6 +26,15 @@ class User(Base, UserMixin):
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     
+    # Email verification
+    email_verified = Column(Boolean, default=False)
+    email_verification_token = Column(String(100), nullable=True)
+    email_verification_sent_at = Column(DateTime, nullable=True)
+    
+    # Password reset
+    password_reset_token = Column(String(100), nullable=True)
+    password_reset_expires = Column(DateTime, nullable=True)
+    
     # Relationships
     evaluations = relationship("EvaluationResultDB", back_populates="user", lazy="dynamic")
     templates = relationship("PromptTemplate", back_populates="user", lazy="dynamic")
@@ -36,12 +45,42 @@ class User(Base, UserMixin):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
     
+    def generate_reset_token(self):
+        """Generate a password reset token."""
+        import secrets
+        self.password_reset_token = secrets.token_urlsafe(32)
+        self.password_reset_expires = datetime.utcnow() + timedelta(hours=1)
+        return self.password_reset_token
+    
+    def verify_reset_token(self, token):
+        """Verify a password reset token."""
+        if not self.password_reset_token or not self.password_reset_expires:
+            return False
+        if self.password_reset_token != token:
+            return False
+        if datetime.utcnow() > self.password_reset_expires:
+            return False
+        return True
+    
+    def clear_reset_token(self):
+        """Clear the password reset token."""
+        self.password_reset_token = None
+        self.password_reset_expires = None
+    
+    def generate_verification_token(self):
+        """Generate an email verification token."""
+        import secrets
+        self.email_verification_token = secrets.token_urlsafe(32)
+        self.email_verification_sent_at = datetime.utcnow()
+        return self.email_verification_token
+    
     def to_dict(self):
         return {
             "id": self.id,
             "email": self.email,
             "username": self.username,
-            "created_at": self.created_at.isoformat() if self.created_at else None
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "email_verified": self.email_verified
         }
 
 
@@ -139,9 +178,52 @@ class Database:
     
     def __init__(self, database_url: Optional[str] = None):
         self.database_url = database_url or Config.DATABASE_URL
-        self.engine = create_engine(self.database_url)
+        
+        # Configure engine with connection pooling for PostgreSQL
+        if self.database_url.startswith("postgresql://"):
+            self.engine = create_engine(
+                self.database_url,
+                pool_size=Config.DB_POOL_SIZE,
+                max_overflow=Config.DB_MAX_OVERFLOW,
+                pool_recycle=Config.DB_POOL_RECYCLE,
+                pool_pre_ping=True  # Verify connections before use
+            )
+        else:
+            # SQLite doesn't support connection pooling
+            self.engine = create_engine(self.database_url)
+        
         Base.metadata.create_all(self.engine)
         self.SessionLocal = sessionmaker(bind=self.engine)
+        self._run_migrations()
+    
+    def is_postgresql(self) -> bool:
+        """Check if using PostgreSQL."""
+        return self.database_url.startswith("postgresql://")
+    
+    def _run_migrations(self):
+        """Run database migrations for new columns."""
+        from sqlalchemy import text
+        session = self.SessionLocal()
+        try:
+            # Check and add new user columns for password reset and email verification
+            columns_to_add = [
+                ("users", "email_verified", "BOOLEAN DEFAULT 0"),
+                ("users", "email_verification_token", "VARCHAR(100)"),
+                ("users", "email_verification_sent_at", "DATETIME"),
+                ("users", "password_reset_token", "VARCHAR(100)"),
+                ("users", "password_reset_expires", "DATETIME"),
+            ]
+            
+            for table, column, column_type in columns_to_add:
+                try:
+                    # Try to add the column - will fail if it already exists
+                    session.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}"))
+                    session.commit()
+                except Exception:
+                    # Column already exists, ignore
+                    session.rollback()
+        finally:
+            session.close()
     
     def save_result(self, result: EvaluationResult) -> None:
         """Save an evaluation result to the database."""
@@ -370,6 +452,85 @@ class Database:
             if user and user.check_password(password):
                 return user
             return None
+        finally:
+            session.close()
+    
+    def update_user_password(self, user_id: str, new_password: str) -> bool:
+        """Update user's password."""
+        session = self.SessionLocal()
+        try:
+            user = session.query(User).filter(User.id == user_id).first()
+            if user:
+                user.set_password(new_password)
+                user.clear_reset_token()
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+    
+    def create_password_reset_token(self, email: str) -> Optional[str]:
+        """Create a password reset token for a user."""
+        session = self.SessionLocal()
+        try:
+            user = session.query(User).filter(User.email == email).first()
+            if user:
+                token = user.generate_reset_token()
+                session.commit()
+                return token
+            return None
+        finally:
+            session.close()
+    
+    def verify_password_reset_token(self, token: str) -> Optional[User]:
+        """Verify a password reset token and return the user."""
+        session = self.SessionLocal()
+        try:
+            user = session.query(User).filter(User.password_reset_token == token).first()
+            if user and user.verify_reset_token(token):
+                return user
+            return None
+        finally:
+            session.close()
+    
+    def reset_password_with_token(self, token: str, new_password: str) -> bool:
+        """Reset password using a valid token."""
+        session = self.SessionLocal()
+        try:
+            user = session.query(User).filter(User.password_reset_token == token).first()
+            if user and user.verify_reset_token(token):
+                user.set_password(new_password)
+                user.clear_reset_token()
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+    
+    def create_email_verification_token(self, user_id: str) -> Optional[str]:
+        """Create an email verification token for a user."""
+        session = self.SessionLocal()
+        try:
+            user = session.query(User).filter(User.id == user_id).first()
+            if user:
+                token = user.generate_verification_token()
+                session.commit()
+                return token
+            return None
+        finally:
+            session.close()
+    
+    def verify_email_token(self, token: str) -> bool:
+        """Verify an email using the token."""
+        session = self.SessionLocal()
+        try:
+            user = session.query(User).filter(User.email_verification_token == token).first()
+            if user:
+                user.email_verified = True
+                user.email_verification_token = None
+                session.commit()
+                return True
+            return False
         finally:
             session.close()
     

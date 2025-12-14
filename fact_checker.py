@@ -1,4 +1,4 @@
-"""Fact-checking module using Wikipedia API, external APIs, and rule-based checks."""
+"""Fact-checking module using Wikipedia API, Google Fact Check, Knowledge Base, and rule-based checks."""
 import requests
 import re
 from typing import Dict, Any, List, Tuple, Optional
@@ -11,9 +11,23 @@ try:
 except ImportError:
     WIKIPEDIA_AVAILABLE = False
 
+# Google Fact Check API
+try:
+    from google_factcheck import get_google_fact_checker
+    GOOGLE_FACTCHECK_AVAILABLE = True
+except ImportError:
+    GOOGLE_FACTCHECK_AVAILABLE = False
+
+# Custom Knowledge Base
+try:
+    from knowledge_base import get_knowledge_base
+    KNOWLEDGE_BASE_AVAILABLE = True
+except ImportError:
+    KNOWLEDGE_BASE_AVAILABLE = False
+
 
 class FactChecker:
-    """Checks factual claims in LLM outputs using Wikipedia and rule-based methods."""
+    """Checks factual claims using Wikipedia, Google Fact Check, Knowledge Base, and rules."""
     
     def __init__(self):
         self.api_key = Config.FACTCHECK_API_KEY
@@ -27,6 +41,22 @@ class FactChecker:
                 user_agent='HalluciDetect/1.0 (https://hallucidetect.onrender.com)',
                 language='en'
             )
+        
+        # Initialize Google Fact Check
+        self._google_fc = None
+        if GOOGLE_FACTCHECK_AVAILABLE:
+            try:
+                self._google_fc = get_google_fact_checker()
+            except Exception:
+                pass
+        
+        # Initialize Knowledge Base
+        self._knowledge_base = None
+        if KNOWLEDGE_BASE_AVAILABLE:
+            try:
+                self._knowledge_base = get_knowledge_base()
+            except Exception:
+                pass
     
     def check_facts(self, text: str, reference_text: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -160,13 +190,31 @@ class FactChecker:
             if ref_result["confidence"] > 0.6:
                 return ref_result
         
-        # Method 2: Try Wikipedia API for entity verification
+        # Method 2: Try Google Fact Check API (FREE)
+        if self._google_fc:
+            try:
+                google_result = self._check_via_google_factcheck(claim)
+                if google_result and google_result["confidence"] > 0.5:
+                    return google_result
+            except Exception:
+                pass
+        
+        # Method 3: Try Custom Knowledge Base
+        if self._knowledge_base:
+            try:
+                kb_result = self._check_via_knowledge_base(claim)
+                if kb_result and kb_result["confidence"] > 0.5:
+                    return kb_result
+            except Exception:
+                pass
+        
+        # Method 4: Try Wikipedia API for entity verification
         if self._wiki and entities:
             wiki_result = self._check_via_wikipedia(claim, entities)
             if wiki_result and wiki_result["confidence"] > 0.5:
                 return wiki_result
         
-        # Method 3: Try external fact-check API
+        # Method 5: Try external fact-check API (if configured)
         if self.api_key and self.api_url:
             try:
                 api_result = self._check_via_api(claim)
@@ -175,9 +223,58 @@ class FactChecker:
             except Exception:
                 pass
         
-        # Method 4: Fall back to rule-based heuristics
+        # Method 6: Fall back to rule-based heuristics
         result = self._check_via_heuristics(claim)
         return result
+    
+    def _check_via_google_factcheck(self, claim: str) -> Optional[Dict[str, Any]]:
+        """Check claim using Google Fact Check Tools API."""
+        if not self._google_fc:
+            return None
+        
+        try:
+            result = self._google_fc.check_claim(claim)
+            
+            if result.get("found", False):
+                verdict = result.get("verdict", "unverified")
+                confidence = result.get("confidence", 0.0)
+                
+                return {
+                    "claim": claim,
+                    "verified": verdict == "true",
+                    "disputed": verdict == "false",
+                    "confidence": confidence,
+                    "source": "Google Fact Check",
+                    "method": "google_factcheck",
+                    "fact_checks": result.get("sources", [])
+                }
+        except Exception:
+            pass
+        
+        return None
+    
+    def _check_via_knowledge_base(self, claim: str) -> Optional[Dict[str, Any]]:
+        """Check claim against custom knowledge base."""
+        if not self._knowledge_base:
+            return None
+        
+        try:
+            result = self._knowledge_base.verify_claim(claim)
+            
+            if result.get("confidence", 0) > 0.4:
+                return {
+                    "claim": claim,
+                    "verified": result.get("verified", False),
+                    "disputed": False,
+                    "confidence": result.get("confidence", 0.0),
+                    "source": result.get("source", "Knowledge Base"),
+                    "method": "knowledge_base",
+                    "matched_fact": result.get("matched_fact")
+                }
+        except Exception:
+            pass
+        
+        return None
     
     def _check_against_reference(self, claim: str, reference_text: str) -> Dict[str, Any]:
         """Check if claim is supported by reference text."""
