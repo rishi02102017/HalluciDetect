@@ -60,32 +60,43 @@
         }
         
         /* ============================================
-           SCAN LINE EFFECT
+           DEMO SCAN LINE - Limited to demo area only
            ============================================ */
-        .scan-line {
-            position: fixed;
+        .demo-scan-line {
+            position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            height: 3px;
+            height: 2px;
             background: linear-gradient(90deg, 
                 transparent 0%, 
-                var(--accent) 20%, 
-                var(--accent-bright) 50%, 
-                var(--accent) 80%, 
+                rgba(99, 102, 241, 0.6) 30%, 
+                rgba(129, 140, 248, 0.8) 50%, 
+                rgba(99, 102, 241, 0.6) 70%, 
                 transparent 100%);
-            box-shadow: 0 0 30px var(--accent-glow), 0 0 60px var(--accent-glow);
-            z-index: 1000;
+            box-shadow: 0 0 15px var(--accent-glow), 0 0 30px rgba(99, 102, 241, 0.2);
+            z-index: 10;
             opacity: 0;
             pointer-events: none;
-            animation: scanDown 8s ease-in-out infinite;
+            animation: demoScan 6s ease-in-out infinite;
+            animation-delay: 2s;
         }
         
-        @keyframes scanDown {
-            0%, 100% { top: -10px; opacity: 0; }
+        @keyframes demoScan {
+            0%, 100% { top: 0; opacity: 0; }
             5% { opacity: 1; }
-            95% { opacity: 1; }
-            99% { top: 100vh; opacity: 0; }
+            90% { opacity: 1; }
+            95% { top: 100%; opacity: 0; }
+        }
+        
+        /* Subtle ambient pulse on demo window */
+        .demo-window {
+            animation: demoPulse 4s ease-in-out infinite;
+        }
+        
+        @keyframes demoPulse {
+            0%, 100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 80px rgba(99, 102, 241, 0.08); }
+            50% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 120px rgba(99, 102, 241, 0.15); }
         }
         
         /* ============================================
@@ -1262,9 +1273,6 @@
     <!-- Particle Network Canvas -->
     <canvas id="particleCanvas"></canvas>
     
-    <!-- Scan Line Effect -->
-    <div class="scan-line"></div>
-    
     <!-- Floating Verification Icons -->
     <div class="floating-icons" id="floatingIcons"></div>
     
@@ -1327,6 +1335,9 @@
             <div class="hero-demo">
                 <div class="demo-wrapper">
                     <div class="demo-window">
+                        <!-- Scan line contained within demo -->
+                        <div class="demo-scan-line"></div>
+                        
                         <div class="demo-header">
                             <div class="demo-dot red"></div>
                             <div class="demo-dot yellow"></div>
