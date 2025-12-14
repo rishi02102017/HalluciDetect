@@ -1172,6 +1172,10 @@
             .features-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
+            
+            .features-grid-4 {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
         }
         
         @media (max-width: 768px) {
@@ -1242,6 +1246,10 @@
                 grid-template-columns: 1fr;
             }
             
+            .features-grid-4 {
+                grid-template-columns: 1fr !important;
+            }
+            
             .step {
                 flex-direction: column;
                 text-align: center;
@@ -1291,6 +1299,7 @@
         
         <div class="nav-links" id="navLinks">
             <a href="#features" class="nav-link">Features</a>
+            <a href="#advanced" class="nav-link">Advanced</a>
             <a href="#how-it-works" class="nav-link">How It Works</a>
             <a href="#faq" class="nav-link">FAQ</a>
             <a href="{{ url_for('login') }}" class="nav-link">Sign In</a>
@@ -1525,6 +1534,81 @@
                     <h3 class="feature-title">Multi-Model</h3>
                     <p class="feature-description">
                         Evaluate GPT-4o, Claude 3.5, Gemini 2.0, Llama 3.3, and 20+ models via OpenRouter.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Advanced Evaluation Section (Phase 2) -->
+    <section class="features" id="advanced" style="padding-top: 4rem;">
+        <div class="features-container">
+            <div class="section-header">
+                <div class="section-tag" style="background: linear-gradient(135deg, #22c55e 0%, #10b981 100%); color: white;">Advanced</div>
+                <h2 class="section-title">Beyond Detection: Complete Evaluation</h2>
+                <p class="section-subtitle">
+                    Industry-standard metrics, statistical testing, and integrations for production-grade LLM evaluation pipelines.
+                </p>
+            </div>
+            <div class="features-grid features-grid-4" style="grid-template-columns: repeat(4, 1fr);">
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: rgba(34, 197, 94, 0.15); color: #22c55e;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                            <rect x="9" y="3" width="6" height="4" rx="1"/>
+                            <path d="M9 12l2 2 4-4"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">NLP Metrics</h3>
+                    <p class="feature-description">
+                        BLEU, ROUGE-L, METEOR, and WER scores for translation, summarization, and transcription quality.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 3h5v5"/>
+                            <path d="M8 3H3v5"/>
+                            <path d="M21 3l-7 7"/>
+                            <path d="M3 3l7 7"/>
+                            <path d="M21 21l-7-7"/>
+                            <path d="M3 21l7-7"/>
+                            <path d="M16 21h5v-5"/>
+                            <path d="M8 21H3v-5"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">A/B Testing</h3>
+                    <p class="feature-description">
+                        Statistical comparison of prompts with Welch's t-test, Cohen's d effect size, and confidence intervals.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: rgba(6, 182, 212, 0.15); color: #06b6d4;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+                            <path d="M8 7h8"/>
+                            <path d="M8 11h8"/>
+                            <path d="M8 15h5"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">RAG Evaluation</h3>
+                    <p class="feature-description">
+                        Context relevance, answer faithfulness, and groundedness scoring for retrieval-augmented generation.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                            <path d="M2 8c0-2.2.7-4.3 2-6"/>
+                            <path d="M22 8a10 10 0 00-2-6"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Webhooks & Alerts</h3>
+                    <p class="feature-description">
+                        Slack notifications, custom webhooks, and threshold-based alerts for monitoring pipelines.
                     </p>
                 </div>
             </div>

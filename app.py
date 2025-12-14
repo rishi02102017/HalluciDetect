@@ -948,13 +948,418 @@ def evaluate_with_jwt():
     
     return jsonify(convert_to_serializable(result.to_dict()))
 
+# ============================================
+# PHASE 2 FEATURES
+# ============================================
+
+# Import Phase 2 modules
+try:
+    from nlp_metrics import get_nlp_metrics
+    NLP_METRICS_AVAILABLE = True
+except ImportError:
+    NLP_METRICS_AVAILABLE = False
+
+try:
+    from ab_testing import get_ab_manager
+    AB_TESTING_AVAILABLE = True
+except ImportError:
+    AB_TESTING_AVAILABLE = False
+
+try:
+    from rag_evaluator import get_rag_evaluator
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
+
+try:
+    from webhooks import get_webhook_manager, AlertLevel
+    WEBHOOKS_AVAILABLE = True
+except ImportError:
+    WEBHOOKS_AVAILABLE = False
+
+
+# ==================== NLP Metrics API ====================
+
+@app.route('/api/metrics/nlp', methods=['POST'])
+@login_required
+def calculate_nlp_metrics():
+    """Calculate BLEU, ROUGE, and other NLP metrics."""
+    if not NLP_METRICS_AVAILABLE:
+        return jsonify({"error": "NLP metrics module not available"}), 500
+    
+    data = request.get_json()
+    candidate = data.get('candidate', '')
+    reference = data.get('reference', '')
+    
+    if not candidate or not reference:
+        return jsonify({"error": "Both 'candidate' and 'reference' are required"}), 400
+    
+    metrics = get_nlp_metrics()
+    result = metrics.calculate_all(candidate, reference)
+    
+    return jsonify(result)
+
+
+@app.route('/api/metrics/bleu', methods=['POST'])
+@login_required
+def calculate_bleu():
+    """Calculate BLEU score only."""
+    if not NLP_METRICS_AVAILABLE:
+        return jsonify({"error": "NLP metrics module not available"}), 500
+    
+    data = request.get_json()
+    candidate = data.get('candidate', '')
+    reference = data.get('reference', '')
+    
+    metrics = get_nlp_metrics()
+    result = metrics.bleu_score(candidate, reference)
+    
+    return jsonify(result)
+
+
+@app.route('/api/metrics/rouge', methods=['POST'])
+@login_required
+def calculate_rouge():
+    """Calculate ROUGE scores only."""
+    if not NLP_METRICS_AVAILABLE:
+        return jsonify({"error": "NLP metrics module not available"}), 500
+    
+    data = request.get_json()
+    candidate = data.get('candidate', '')
+    reference = data.get('reference', '')
+    
+    metrics = get_nlp_metrics()
+    result = metrics.rouge_scores(candidate, reference)
+    
+    return jsonify(result)
+
+
+# ==================== A/B Testing API ====================
+
+@app.route('/api/ab-tests', methods=['GET'])
+@login_required
+def list_ab_tests():
+    """List all A/B tests."""
+    if not AB_TESTING_AVAILABLE:
+        return jsonify({"error": "A/B testing module not available"}), 500
+    
+    manager = get_ab_manager()
+    return jsonify({"tests": manager.list_tests()})
+
+
+@app.route('/api/ab-tests', methods=['POST'])
+@login_required
+def create_ab_test():
+    """Create a new A/B test."""
+    if not AB_TESTING_AVAILABLE:
+        return jsonify({"error": "A/B testing module not available"}), 500
+    
+    data = request.get_json()
+    
+    required = ['name', 'prompt_a', 'prompt_b']
+    if not all(k in data for k in required):
+        return jsonify({"error": f"Required fields: {required}"}), 400
+    
+    manager = get_ab_manager()
+    test = manager.create_test(
+        name=data['name'],
+        description=data.get('description', ''),
+        prompt_a=data['prompt_a'],
+        prompt_b=data['prompt_b'],
+        variant_a_name=data.get('variant_a_name', 'Control'),
+        variant_b_name=data.get('variant_b_name', 'Variant'),
+        model_name=data.get('model_name'),
+        reference_text=data.get('reference_text')
+    )
+    
+    return jsonify({"test": test.to_dict()}), 201
+
+
+@app.route('/api/ab-tests/<test_id>', methods=['GET'])
+@login_required
+def get_ab_test(test_id):
+    """Get A/B test details and analysis."""
+    if not AB_TESTING_AVAILABLE:
+        return jsonify({"error": "A/B testing module not available"}), 500
+    
+    manager = get_ab_manager()
+    analysis = manager.analyze_test(test_id)
+    
+    if "error" in analysis:
+        return jsonify(analysis), 404
+    
+    return jsonify(analysis)
+
+
+@app.route('/api/ab-tests/<test_id>/results', methods=['POST'])
+@login_required
+def add_ab_result(test_id):
+    """Add a result to an A/B test variant."""
+    if not AB_TESTING_AVAILABLE:
+        return jsonify({"error": "A/B testing module not available"}), 500
+    
+    data = request.get_json()
+    variant = data.get('variant', '')  # "A" or "B"
+    score = data.get('score', 0.0)
+    latency = data.get('latency', 0.0)
+    hallucination_rate = data.get('hallucination_rate', 0.0)
+    
+    if variant not in ['A', 'B']:
+        return jsonify({"error": "Variant must be 'A' or 'B'"}), 400
+    
+    manager = get_ab_manager()
+    success = manager.add_result(test_id, variant, score, latency, hallucination_rate)
+    
+    if not success:
+        return jsonify({"error": "Test not found"}), 404
+    
+    return jsonify({"success": True, "message": f"Result added to variant {variant}"})
+
+
+# ==================== RAG Evaluation API ====================
+
+@app.route('/api/rag/evaluate', methods=['POST'])
+@login_required
+def evaluate_rag():
+    """Evaluate RAG pipeline output."""
+    if not RAG_AVAILABLE:
+        return jsonify({"error": "RAG evaluator module not available"}), 500
+    
+    data = request.get_json()
+    query = data.get('query', '')
+    answer = data.get('answer', '')
+    contexts = data.get('contexts', [])
+    
+    if not query or not answer:
+        return jsonify({"error": "Both 'query' and 'answer' are required"}), 400
+    
+    if not contexts:
+        return jsonify({"error": "At least one context is required"}), 400
+    
+    evaluator = get_rag_evaluator()
+    result = evaluator.evaluate(query, answer, contexts)
+    
+    return jsonify(result)
+
+
+@app.route('/api/rag/context-relevance', methods=['POST'])
+@login_required
+def rag_context_relevance():
+    """Check context relevance for RAG."""
+    if not RAG_AVAILABLE:
+        return jsonify({"error": "RAG evaluator module not available"}), 500
+    
+    data = request.get_json()
+    query = data.get('query', '')
+    contexts = data.get('contexts', [])
+    
+    evaluator = get_rag_evaluator()
+    result = evaluator.context_relevance(query, contexts)
+    
+    return jsonify(result)
+
+
+@app.route('/api/rag/faithfulness', methods=['POST'])
+@login_required
+def rag_faithfulness():
+    """Check answer faithfulness for RAG."""
+    if not RAG_AVAILABLE:
+        return jsonify({"error": "RAG evaluator module not available"}), 500
+    
+    data = request.get_json()
+    answer = data.get('answer', '')
+    contexts = data.get('contexts', [])
+    
+    evaluator = get_rag_evaluator()
+    result = evaluator.answer_faithfulness(answer, contexts)
+    
+    return jsonify(result)
+
+
+# ==================== Webhooks API ====================
+
+@app.route('/api/webhooks', methods=['GET'])
+@login_required
+def list_webhooks():
+    """List all webhooks."""
+    if not WEBHOOKS_AVAILABLE:
+        return jsonify({"error": "Webhooks module not available"}), 500
+    
+    manager = get_webhook_manager()
+    return jsonify({"webhooks": manager.list_webhooks()})
+
+
+@app.route('/api/webhooks', methods=['POST'])
+@login_required
+def create_webhook():
+    """Create a new webhook."""
+    if not WEBHOOKS_AVAILABLE:
+        return jsonify({"error": "Webhooks module not available"}), 500
+    
+    data = request.get_json()
+    
+    if 'name' not in data or 'url' not in data:
+        return jsonify({"error": "Both 'name' and 'url' are required"}), 400
+    
+    manager = get_webhook_manager()
+    webhook = manager.add_webhook(
+        name=data['name'],
+        url=data['url'],
+        events=data.get('events'),
+        headers=data.get('headers'),
+        secret=data.get('secret')
+    )
+    
+    return jsonify({"webhook": webhook.to_dict()}), 201
+
+
+@app.route('/api/webhooks/<webhook_id>', methods=['DELETE'])
+@login_required
+def delete_webhook(webhook_id):
+    """Delete a webhook."""
+    if not WEBHOOKS_AVAILABLE:
+        return jsonify({"error": "Webhooks module not available"}), 500
+    
+    manager = get_webhook_manager()
+    success = manager.remove_webhook(webhook_id)
+    
+    if not success:
+        return jsonify({"error": "Webhook not found"}), 404
+    
+    return jsonify({"success": True})
+
+
+@app.route('/api/webhooks/test', methods=['POST'])
+@login_required
+def test_webhook():
+    """Send a test webhook."""
+    if not WEBHOOKS_AVAILABLE:
+        return jsonify({"error": "Webhooks module not available"}), 500
+    
+    data = request.get_json()
+    webhook_id = data.get('webhook_id')
+    
+    manager = get_webhook_manager()
+    result = manager.send_webhook(
+        "test.ping",
+        {"message": "Test webhook from HalluciDetect", "timestamp": datetime.utcnow().isoformat()},
+        webhook_id
+    )
+    
+    return jsonify({"results": result})
+
+
+@app.route('/api/alerts', methods=['GET'])
+@login_required
+def list_alerts():
+    """List all alert rules."""
+    if not WEBHOOKS_AVAILABLE:
+        return jsonify({"error": "Webhooks module not available"}), 500
+    
+    manager = get_webhook_manager()
+    return jsonify({"alerts": manager.list_alert_rules()})
+
+
+@app.route('/api/alerts', methods=['POST'])
+@login_required
+def create_alert():
+    """Create a new alert rule."""
+    if not WEBHOOKS_AVAILABLE:
+        return jsonify({"error": "Webhooks module not available"}), 500
+    
+    data = request.get_json()
+    
+    required = ['name', 'metric', 'operator', 'threshold']
+    if not all(k in data for k in required):
+        return jsonify({"error": f"Required fields: {required}"}), 400
+    
+    level_map = {
+        "info": AlertLevel.INFO,
+        "warning": AlertLevel.WARNING,
+        "error": AlertLevel.ERROR,
+        "critical": AlertLevel.CRITICAL
+    }
+    
+    manager = get_webhook_manager()
+    rule = manager.add_alert_rule(
+        name=data['name'],
+        metric=data['metric'],
+        operator=data['operator'],
+        threshold=float(data['threshold']),
+        level=level_map.get(data.get('level', 'warning'), AlertLevel.WARNING),
+        cooldown_minutes=data.get('cooldown_minutes', 5)
+    )
+    
+    return jsonify({"alert": rule.to_dict()}), 201
+
+
+@app.route('/api/slack/configure', methods=['POST'])
+@login_required
+def configure_slack():
+    """Configure Slack webhook URL."""
+    if not WEBHOOKS_AVAILABLE:
+        return jsonify({"error": "Webhooks module not available"}), 500
+    
+    data = request.get_json()
+    webhook_url = data.get('webhook_url', '')
+    
+    if not webhook_url:
+        return jsonify({"error": "webhook_url is required"}), 400
+    
+    manager = get_webhook_manager()
+    manager.configure_slack(webhook_url)
+    
+    return jsonify({"success": True, "message": "Slack webhook configured"})
+
+
+@app.route('/api/slack/test', methods=['POST'])
+@login_required
+def test_slack():
+    """Send a test message to Slack."""
+    if not WEBHOOKS_AVAILABLE:
+        return jsonify({"error": "Webhooks module not available"}), 500
+    
+    manager = get_webhook_manager()
+    result = manager.send_slack_alert(
+        message="Test message from HalluciDetect",
+        title="Test Notification",
+        level=AlertLevel.INFO,
+        fields={"Status": "Connected", "Time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")}
+    )
+    
+    return jsonify(result)
+
+
+# ==================== Phase 2 Feature Status ====================
+
+@app.route('/api/features')
+def get_features():
+    """Get available Phase 2 features."""
+    return jsonify({
+        "phase": 2,
+        "features": {
+            "nlp_metrics": NLP_METRICS_AVAILABLE,
+            "ab_testing": AB_TESTING_AVAILABLE,
+            "rag_evaluation": RAG_AVAILABLE,
+            "webhooks": WEBHOOKS_AVAILABLE
+        },
+        "version": "1.3.0"
+    })
+
+
 @app.route('/health')
 def health():
     """Health check endpoint for Render."""
     return jsonify({
         "status": "healthy",
         "database": "postgresql" if db.is_postgresql() else "sqlite",
-        "version": "1.2.0"
+        "version": "1.3.0",
+        "phase2_features": {
+            "nlp_metrics": NLP_METRICS_AVAILABLE,
+            "ab_testing": AB_TESTING_AVAILABLE,
+            "rag_evaluation": RAG_AVAILABLE,
+            "webhooks": WEBHOOKS_AVAILABLE
+        }
     })
 
 if __name__ == '__main__':

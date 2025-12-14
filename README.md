@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <em>Version 1.2.0</em>
+  <em>Version 1.3.0</em>
 </p>
 
 <p align="center">
@@ -480,6 +480,13 @@ mindmap
 - **PDF Reports**: Generate professional PDF reports of evaluation results
 - **Professional Landing Page**: Animated, interactive introduction with live demo
 
+### Advanced Evaluation (Phase 2)
+- **NLP Metrics**: BLEU, ROUGE (1/2/L), METEOR, and Word Error Rate scores
+- **A/B Prompt Testing**: Statistical comparison with Welch's t-test and Cohen's d effect size
+- **RAG Evaluation**: Context relevance, answer faithfulness, and groundedness scoring
+- **Webhook Integrations**: Custom endpoints and Slack notifications
+- **Alert Rules**: Threshold-based alerts with configurable severity levels
+
 ### Technical
 - **PostgreSQL Support**: Production-ready database with connection pooling
 - **SQLite Fallback**: Zero-config local development database
@@ -502,6 +509,10 @@ mindmap
 ├── jwt_auth.py               # JWT token authentication for API
 ├── pdf_export.py             # PDF report generation with ReportLab
 ├── backup_utils.py           # Database backup and restore utilities
+├── nlp_metrics.py            # BLEU, ROUGE, METEOR, WER scoring
+├── ab_testing.py             # A/B prompt testing with statistics
+├── rag_evaluator.py          # RAG evaluation (faithfulness, relevance)
+├── webhooks.py               # Webhook and Slack notifications
 ├── llm_client.py             # Multi-provider LLM client
 ├── models.py                 # Data models (EvaluationResult, Batch)
 ├── rule_based_scorer.py      # Pattern and entity analysis
@@ -673,6 +684,40 @@ All API endpoints (except public ones) require authentication via session or JWT
 | POST | `/api/backup` | Create database backup |
 | GET | `/api/backup/list` | List available backups |
 | GET | `/health` | Health check (public) |
+
+#### NLP Metrics (Phase 2)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/metrics/nlp` | Calculate all NLP metrics (BLEU, ROUGE, etc.) |
+| POST | `/api/metrics/bleu` | Calculate BLEU score only |
+| POST | `/api/metrics/rouge` | Calculate ROUGE scores only |
+
+#### A/B Testing (Phase 2)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/ab-tests` | List all A/B tests |
+| POST | `/api/ab-tests` | Create new A/B test |
+| GET | `/api/ab-tests/:id` | Get test details with analysis |
+| POST | `/api/ab-tests/:id/results` | Add result to variant |
+
+#### RAG Evaluation (Phase 2)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/rag/evaluate` | Full RAG evaluation |
+| POST | `/api/rag/context-relevance` | Check context relevance |
+| POST | `/api/rag/faithfulness` | Check answer faithfulness |
+
+#### Webhooks & Alerts (Phase 2)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/webhooks` | List all webhooks |
+| POST | `/api/webhooks` | Create new webhook |
+| DELETE | `/api/webhooks/:id` | Delete a webhook |
+| POST | `/api/webhooks/test` | Send test webhook |
+| GET | `/api/alerts` | List all alert rules |
+| POST | `/api/alerts` | Create new alert rule |
+| POST | `/api/slack/configure` | Configure Slack webhook |
+| POST | `/api/slack/test` | Send test Slack message |
 
 ### JWT Authentication Example
 
