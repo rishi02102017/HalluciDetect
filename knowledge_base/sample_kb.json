@@ -1,0 +1,27 @@
+{
+  "domain": "general",
+  "version": "1.0",
+  "facts": [
+    {
+      "id": "1",
+      "statement": "The Earth orbits around the Sun.",
+      "category": "science",
+      "verified": true,
+      "source": "NASA"
+    },
+    {
+      "id": "2",
+      "statement": "Water boils at 100 degrees Celsius at sea level.",
+      "category": "science",
+      "verified": true,
+      "source": "Physics textbook"
+    },
+    {
+      "id": "3",
+      "statement": "Python is a programming language created by Guido van Rossum.",
+      "category": "technology",
+      "verified": true,
+      "source": "Python.org"
+    }
+  ]
+}

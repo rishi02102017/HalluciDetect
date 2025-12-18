@@ -291,7 +291,21 @@ def register():
         user = db.create_user(email, username, password)
         if user:
             login_user(user)
-            flash('Account created successfully! Welcome to HalluciDetect.', 'success')
+            
+            # Try to send verification email
+            try:
+                from email_utils import send_verification_email, is_email_configured
+                token = db.create_email_verification_token(user.id)
+                
+                if token and is_email_configured():
+                    verify_url = url_for('verify_email', token=token, _external=True)
+                    send_verification_email(email, username, verify_url)
+                    flash('Account created! Please check your email to verify your account.', 'success')
+                else:
+                    flash('Account created successfully! Welcome to HalluciDetect.', 'success')
+            except Exception:
+                flash('Account created successfully! Welcome to HalluciDetect.', 'success')
+            
             return redirect(url_for('dashboard'))
         else:
             flash('Email or username already exists.', 'error')
@@ -306,6 +320,54 @@ def logout():
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
+
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    """Verify email with token."""
+    user = db.verify_email_token(token)
+    
+    if user:
+        # Send welcome email
+        try:
+            from email_utils import send_welcome_email, is_email_configured
+            if is_email_configured():
+                send_welcome_email(user.email, user.username)
+        except Exception:
+            pass
+        
+        flash('Email verified successfully! Your account is now fully activated.', 'success')
+        
+        if current_user.is_authenticated:
+            return redirect(url_for('profile'))
+        return redirect(url_for('login'))
+    else:
+        flash('Invalid or expired verification link.', 'error')
+        return redirect(url_for('login'))
+
+@app.route('/resend-verification')
+@login_required
+def resend_verification():
+    """Resend verification email."""
+    if current_user.email_verified:
+        flash('Your email is already verified.', 'info')
+        return redirect(url_for('profile'))
+    
+    try:
+        from email_utils import send_verification_email, is_email_configured
+        token = db.create_email_verification_token(current_user.id)
+        
+        if token and is_email_configured():
+            verify_url = url_for('verify_email', token=token, _external=True)
+            if send_verification_email(current_user.email, current_user.username, verify_url):
+                flash('Verification email sent! Please check your inbox.', 'success')
+            else:
+                flash('Failed to send verification email. Please try again.', 'error')
+        else:
+            flash('Email service not configured.', 'error')
+    except Exception as e:
+        flash('Failed to send verification email.', 'error')
+    
+    return redirect(url_for('profile'))
 
 # ============ Password Management Routes ============
 
@@ -359,13 +421,24 @@ def forgot_password():
         token = db.create_password_reset_token(email)
         
         if token:
-            # In production, send email here
-            # For now, show the reset link (development mode)
             reset_url = url_for('reset_password', token=token, _external=True)
-            flash(f'Password reset link has been generated. In production, this would be emailed to you.', 'info')
-            # Store in session for development display
-            from flask import session
-            session['dev_reset_url'] = reset_url
+            
+            # Try to send email
+            try:
+                from email_utils import send_password_reset_email, is_email_configured
+                user = db.get_user_by_email(email)
+                
+                if is_email_configured() and user:
+                    if send_password_reset_email(email, user.username, reset_url):
+                        flash('Password reset link has been sent to your email.', 'success')
+                    else:
+                        flash('Failed to send email. Please try again later.', 'error')
+                else:
+                    # Development mode - show link directly
+                    flash(f'Reset link (dev mode): {reset_url}', 'info')
+            except Exception as e:
+                # Fallback for development
+                flash(f'Reset link (dev mode): {reset_url}', 'info')
         else:
             # Don't reveal if email exists or not (security)
             flash('If an account with that email exists, a reset link has been sent.', 'info')
@@ -412,35 +485,6 @@ def reset_password(token):
             return redirect(url_for('forgot_password'))
     
     return render_template('auth/reset_password.html', token=token)
-
-@app.route('/verify-email/<token>')
-def verify_email(token):
-    """Verify email with token."""
-    if db.verify_email_token(token):
-        flash('Email verified successfully!', 'success')
-    else:
-        flash('Invalid or expired verification link.', 'error')
-    
-    if current_user.is_authenticated:
-        return redirect(url_for('profile'))
-    return redirect(url_for('login'))
-
-@app.route('/resend-verification')
-@login_required
-def resend_verification():
-    """Resend email verification."""
-    if current_user.email_verified:
-        flash('Email is already verified.', 'info')
-        return redirect(url_for('profile'))
-    
-    token = db.create_email_verification_token(current_user.id)
-    if token:
-        # In production, send email here
-        verify_url = url_for('verify_email', token=token, _external=True)
-        flash('Verification email has been sent. (In dev mode, check console for link)', 'info')
-        print(f"DEV MODE - Verification URL: {verify_url}")
-    
-    return redirect(url_for('profile'))
 
 # ============ API Routes ============
 
