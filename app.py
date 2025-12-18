@@ -2,6 +2,7 @@
 import os
 import io
 import csv
+import re
 from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, make_response
 from flask.json.provider import DefaultJSONProvider
 from flask_cors import CORS
@@ -11,6 +12,22 @@ from database import Database, convert_to_serializable, User
 from config import Config
 import json
 import numpy as np
+
+# Security imports
+try:
+    from flask_wtf.csrf import CSRFProtect, CSRFError
+    CSRF_AVAILABLE = True
+except ImportError:
+    CSRF_AVAILABLE = False
+    CSRFProtect = None
+
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    LIMITER_AVAILABLE = True
+except ImportError:
+    LIMITER_AVAILABLE = False
+    Limiter = None
 
 class CustomJSONProvider(DefaultJSONProvider):
     """Custom JSON provider to handle numpy types."""
@@ -32,6 +49,80 @@ if not app.secret_key:
     raise RuntimeError("SECRET_KEY environment variable is required. Add it to your .env file.")
 CORS(app)
 
+# Initialize CSRF Protection
+csrf = None
+if CSRF_AVAILABLE:
+    app.config['WTF_CSRF_TIME_LIMIT'] = 3600  # 1 hour token validity
+    app.config['WTF_CSRF_CHECK_DEFAULT'] = False  # We'll check manually for form routes
+    csrf = CSRFProtect(app)
+    
+    @app.before_request
+    def csrf_protect():
+        """Apply CSRF protection only to form submissions (not API routes)."""
+        # Skip CSRF for safe methods
+        if request.method in ('GET', 'HEAD', 'OPTIONS', 'TRACE'):
+            return
+        # Skip CSRF for API routes (they use JWT/token auth)
+        if request.path.startswith('/api/'):
+            return
+        # Skip if Authorization header is present (API access)
+        if request.headers.get('Authorization'):
+            return
+        # Validate CSRF for form submissions
+        try:
+            from flask_wtf.csrf import validate_csrf
+            validate_csrf(request.form.get('csrf_token'))
+        except Exception:
+            flash('Session expired or invalid request. Please try again.', 'error')
+            return redirect(request.referrer or url_for('login'))
+    
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(e):
+        # Return JSON error for API requests
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'CSRF validation failed'}), 403
+        flash('Session expired or invalid request. Please try again.', 'error')
+        return redirect(request.referrer or url_for('login'))
+
+# Initialize Rate Limiter
+limiter = None
+if LIMITER_AVAILABLE:
+    limiter = Limiter(
+        key_func=get_remote_address,
+        app=app,
+        default_limits=["200 per day", "50 per hour"],
+        storage_uri="memory://",  # Use in-memory storage (for production, use Redis)
+    )
+    
+    @app.errorhandler(429)
+    def ratelimit_handler(e):
+        flash('Too many attempts. Please wait a few minutes before trying again.', 'error')
+        return redirect(request.referrer or url_for('login'))
+
+# ============ Password Validation ============
+
+def validate_password(password: str) -> tuple[bool, str]:
+    """
+    Validate password strength.
+    Returns (is_valid, error_message)
+    """
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter."
+    
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter."
+    
+    if not re.search(r'\d', password):
+        return False, "Password must contain at least one number."
+    
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;\'`~]', password):
+        return False, "Password must contain at least one special character (!@#$%^&* etc.)."
+    
+    return True, ""
+
 # Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -42,6 +133,11 @@ login_manager.login_message_category = 'info'
 # Initialize database
 db = Database()
 db.init_default_templates()  # Initialize default templates
+
+# Auto-promote admin user from environment variable (useful for production)
+ADMIN_EMAIL = os.getenv('ADMIN_EMAIL')
+if ADMIN_EMAIL:
+    db.set_admin_by_email(ADMIN_EMAIL, is_admin=True)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -97,6 +193,21 @@ def settings():
     """Settings page."""
     return render_template('settings.html', active_page='settings')
 
+@app.route('/admin')
+@login_required
+def admin():
+    """Admin dashboard - platform statistics and management."""
+    # Check if user is admin
+    if not getattr(current_user, 'is_admin', False):
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get platform stats
+    stats = db.get_platform_stats()
+    users = db.get_all_users()
+    
+    return render_template('admin.html', active_page='admin', stats=stats, users=users)
+
 @app.route('/templates')
 @login_required
 def templates_page():
@@ -111,7 +222,16 @@ def profile():
 
 # ============ Auth Routes ============
 
+def rate_limit_auth(limit_string):
+    """Decorator factory for auth rate limiting."""
+    def decorator(f):
+        if limiter:
+            return limiter.limit(limit_string, methods=["POST"])(f)
+        return f
+    return decorator
+
 @app.route('/login', methods=['GET', 'POST'])
+@rate_limit_auth("5 per minute")
 def login():
     """Login page and handler."""
     if current_user.is_authenticated:
@@ -126,6 +246,9 @@ def login():
         if user:
             login_user(user, remember=bool(remember))
             next_page = request.args.get('next')
+            # Security: Validate next_page to prevent open redirect
+            if next_page and (not next_page.startswith('/') or next_page.startswith('//')):
+                next_page = None
             flash('Welcome back!', 'success')
             return redirect(next_page if next_page else url_for('dashboard'))
         else:
@@ -135,6 +258,7 @@ def login():
     return render_template('auth/login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
+@rate_limit_auth("3 per minute")
 def register():
     """Registration page and handler."""
     if current_user.is_authenticated:
@@ -153,21 +277,25 @@ def register():
         elif password != confirm_password:
             flash('Passwords do not match.', 'error')
             return redirect(url_for('register'))
-        elif len(password) < 6:
-            flash('Password must be at least 6 characters.', 'error')
+        
+        # Strong password validation
+        is_valid, error_msg = validate_password(password)
+        if not is_valid:
+            flash(error_msg, 'error')
             return redirect(url_for('register'))
-        elif len(username) < 3:
+        
+        if len(username) < 3:
             flash('Username must be at least 3 characters.', 'error')
             return redirect(url_for('register'))
+        
+        user = db.create_user(email, username, password)
+        if user:
+            login_user(user)
+            flash('Account created successfully! Welcome to HalluciDetect.', 'success')
+            return redirect(url_for('dashboard'))
         else:
-            user = db.create_user(email, username, password)
-            if user:
-                login_user(user)
-                flash('Account created successfully! Welcome to HalluciDetect.', 'success')
-                return redirect(url_for('dashboard'))
-            else:
-                flash('Email or username already exists.', 'error')
-                return redirect(url_for('register'))
+            flash('Email or username already exists.', 'error')
+            return redirect(url_for('register'))
     
     return render_template('auth/register.html')
 
@@ -201,8 +329,10 @@ def change_password():
         flash('New passwords do not match.', 'error')
         return redirect(url_for('profile'))
     
-    if len(new_password) < 6:
-        flash('Password must be at least 6 characters.', 'error')
+    # Strong password validation
+    is_valid, error_msg = validate_password(new_password)
+    if not is_valid:
+        flash(error_msg, 'error')
         return redirect(url_for('profile'))
     
     if db.update_user_password(current_user.id, new_password):
@@ -213,6 +343,7 @@ def change_password():
     return redirect(url_for('profile'))
 
 @app.route('/forgot-password', methods=['GET', 'POST'])
+@rate_limit_auth("3 per minute")
 def forgot_password():
     """Forgot password page and handler."""
     if current_user.is_authenticated:
@@ -244,6 +375,7 @@ def forgot_password():
     return render_template('auth/forgot_password.html')
 
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
+@rate_limit_auth("3 per minute")
 def reset_password(token):
     """Reset password with token."""
     if current_user.is_authenticated:
@@ -266,8 +398,10 @@ def reset_password(token):
             flash('Passwords do not match.', 'error')
             return redirect(url_for('reset_password', token=token))
         
-        if len(new_password) < 6:
-            flash('Password must be at least 6 characters.', 'error')
+        # Strong password validation
+        is_valid, error_msg = validate_password(new_password)
+        if not is_valid:
+            flash(error_msg, 'error')
             return redirect(url_for('reset_password', token=token))
         
         if db.reset_password_with_token(token, new_password):
@@ -682,6 +816,52 @@ def set_user_theme():
     
     db.set_user_preference(current_user.id, 'theme', theme)
     return jsonify({'success': True, 'theme': theme})
+
+# ============ Admin API Endpoints ============
+
+def admin_required(f):
+    """Decorator to require admin access."""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Authentication required'}), 401
+        if not getattr(current_user, 'is_admin', False):
+            return jsonify({'error': 'Admin access required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/api/admin/stats')
+@admin_required
+def api_admin_stats():
+    """Get platform-wide statistics (admin only)."""
+    stats = db.get_platform_stats()
+    # Add system info
+    stats['database_type'] = 'PostgreSQL' if db.is_postgresql() else 'SQLite'
+    stats['version'] = '1.3.0'
+    return jsonify(stats)
+
+@app.route('/api/admin/users')
+@admin_required
+def api_admin_users():
+    """Get all users (admin only)."""
+    users = db.get_all_users()
+    return jsonify(users)
+
+@app.route('/api/admin/users/<user_id>/toggle-admin', methods=['POST'])
+@admin_required
+def api_toggle_admin(user_id):
+    """Toggle admin status for a user (admin only)."""
+    # Prevent self-demotion
+    if user_id == current_user.id:
+        return jsonify({'error': 'Cannot modify your own admin status'}), 400
+    
+    data = request.get_json() or {}
+    is_admin = data.get('is_admin', False)
+    
+    if db.set_admin(user_id, is_admin):
+        return jsonify({'success': True, 'is_admin': is_admin})
+    return jsonify({'error': 'User not found'}), 404
 
 # ============ JWT API Authentication ============
 

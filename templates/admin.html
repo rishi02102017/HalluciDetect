@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - HalluciDetect{% endblock %}
+{% block header_title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    
+    <!-- Platform Overview -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Total Users</span>
+                <div class="metric-icon primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 010 7.75"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="metric-value">{{ stats.total_users }}</div>
+            <div class="metric-change positive">
+                <span>+{{ stats.recent_users_7d }} this week</span>
+            </div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Total Evaluations</span>
+                <div class="metric-icon success">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="metric-value">{{ stats.total_evaluations }}</div>
+            <div class="metric-change positive">
+                <span>+{{ stats.recent_evaluations_7d }} this week</span>
+            </div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Total Templates</span>
+                <div class="metric-icon info">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="metric-value">{{ stats.total_templates }}</div>
+        </div>
+        
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">System Status</span>
+                <div class="metric-icon success">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="metric-value" style="font-size: 1.5rem;">Healthy</div>
+            <div class="metric-change">
+                <span class="badge badge-success">All systems operational</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="grid-2">
+        <!-- System Information -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">System Information</h3>
+            </div>
+            <div class="card-body">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-muted);">Version</span>
+                        <span class="mono">1.3.0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-muted);">Database</span>
+                        <span class="badge badge-info" id="db-type">Loading...</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-muted);">API Status</span>
+                        <span class="badge badge-success" id="api-status">Connected</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                        <span style="color: var(--text-muted);">Environment</span>
+                        <span class="badge badge-warning">Development</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 12px 0;">
+                        <span style="color: var(--text-muted);">Last Updated</span>
+                        <span class="mono" style="font-size: 0.875rem;">December 2025</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Quick Actions</h3>
+            </div>
+            <div class="card-body">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <a href="/api/results/export?format=csv" class="btn btn-secondary" download style="justify-content: flex-start;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Export All Evaluations (CSV)
+                    </a>
+                    <a href="/api/templates/export/json" class="btn btn-secondary" download style="justify-content: flex-start;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Export All Templates (JSON)
+                    </a>
+                    <button class="btn btn-secondary" onclick="testApiConnection()" style="justify-content: flex-start;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                            <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                        Test API Connection
+                    </button>
+                    <a href="/health" target="_blank" class="btn btn-secondary" style="justify-content: flex-start;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                        </svg>
+                        View Health Check
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Users List -->
+    <div class="card" style="margin-top: 24px;">
+        <div class="card-header">
+            <h3 class="card-title">Registered Users ({{ users|length }})</h3>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Joined</th>
+                            <th>Status</th>
+                            <th>Role</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.875rem; color: white;">
+                                        {{ user.username[0]|upper }}
+                                    </div>
+                                    <span style="font-weight: 500;">{{ user.username }}</span>
+                                </div>
+                            </td>
+                            <td style="color: var(--text-muted);">{{ user.email }}</td>
+                            <td style="color: var(--text-muted);">
+                                {% if user.created_at %}
+                                    {{ user.created_at[:10] }}
+                                {% else %}
+                                    --
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.is_active %}
+                                    <span class="badge badge-success">Active</span>
+                                {% else %}
+                                    <span class="badge badge-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.is_admin %}
+                                    <span class="badge badge-info">Admin</span>
+                                {% else %}
+                                    <span class="badge badge-neutral">User</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadAdminStats();
+});
+
+async function loadAdminStats() {
+    try {
+        const response = await fetch('/api/admin/stats');
+        if (response.ok) {
+            const stats = await response.json();
+            document.getElementById('db-type').textContent = stats.database_type || 'Unknown';
+        }
+    } catch (error) {
+        console.error('Error loading admin stats:', error);
+    }
+}
+
+async function testApiConnection() {
+    try {
+        const response = await fetch('/api/models');
+        if (response.ok) {
+            const models = await response.json();
+            const totalModels = Object.values(models).flat().length;
+            alert(`✓ API Connection Successful!\n\nConnected providers: ${Object.keys(models).length}\nTotal models available: ${totalModels}`);
+            document.getElementById('api-status').className = 'badge badge-success';
+            document.getElementById('api-status').textContent = 'Connected';
+        } else {
+            throw new Error('API returned error');
+        }
+    } catch (error) {
+        alert('✗ API Connection Failed\n\nPlease check your API keys in the .env file.');
+        document.getElementById('api-status').className = 'badge badge-danger';
+        document.getElementById('api-status').textContent = 'Disconnected';
+    }
+}
+</script>
+{% endblock %}
+

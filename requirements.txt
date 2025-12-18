@@ -30,3 +30,14 @@ reportlab>=4.0.0
 # Database Migrations
 flask-migrate>=4.0.0
 alembic>=1.13.0
+
+# Security
+flask-wtf>=1.2.0
+flask-limiter>=3.5.0
+
+# NLP Metrics
+nltk>=3.8.1
+rouge_score>=0.1.2
+
+# A/B Testing (for statistical analysis)
+scipy>=1.10.0

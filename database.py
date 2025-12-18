@@ -25,6 +25,7 @@ class User(Base, UserMixin):
     password_hash = Column(String(256), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)  # Admin flag
     
     # Email verification
     email_verified = Column(Boolean, default=False)
@@ -208,7 +209,7 @@ class Database:
         from sqlalchemy import text
         session = self.SessionLocal()
         try:
-            # Check and add new user columns for password reset, email verification, and preferences
+            # Check and add new user columns for password reset, email verification, preferences, and admin
             columns_to_add = [
                 ("users", "email_verified", "BOOLEAN DEFAULT 0"),
                 ("users", "email_verification_token", "VARCHAR(100)"),
@@ -216,6 +217,7 @@ class Database:
                 ("users", "password_reset_token", "VARCHAR(100)"),
                 ("users", "password_reset_expires", "DATETIME"),
                 ("users", "preferences", "TEXT"),  # JSON stored as text for SQLite compatibility
+                ("users", "is_admin", "BOOLEAN DEFAULT 0"),  # Admin flag
             ]
             
             for table, column, column_type in columns_to_add:
@@ -768,6 +770,79 @@ class Database:
                 session.commit()
                 return True
             return False
+        finally:
+            session.close()
+    
+    # ============ Admin Methods ============
+    
+    def set_admin(self, user_id: str, is_admin: bool = True) -> bool:
+        """Set or unset admin status for a user."""
+        session = self.SessionLocal()
+        try:
+            user = session.query(User).filter(User.id == user_id).first()
+            if user:
+                user.is_admin = is_admin
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+    
+    def set_admin_by_email(self, email: str, is_admin: bool = True) -> bool:
+        """Set or unset admin status for a user by email."""
+        session = self.SessionLocal()
+        try:
+            user = session.query(User).filter(User.email == email).first()
+            if user:
+                user.is_admin = is_admin
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+    
+    def get_all_users(self) -> List[Dict[str, Any]]:
+        """Get all users (admin only)."""
+        session = self.SessionLocal()
+        try:
+            users = session.query(User).order_by(User.created_at.desc()).all()
+            return [
+                {
+                    "id": u.id,
+                    "email": u.email,
+                    "username": u.username,
+                    "created_at": u.created_at.isoformat() if u.created_at else None,
+                    "is_admin": getattr(u, 'is_admin', False),
+                    "is_active": u.is_active,
+                    "email_verified": getattr(u, 'email_verified', False),
+                }
+                for u in users
+            ]
+        finally:
+            session.close()
+    
+    def get_platform_stats(self) -> Dict[str, Any]:
+        """Get platform-wide statistics (admin only)."""
+        session = self.SessionLocal()
+        try:
+            total_users = session.query(User).count()
+            total_evaluations = session.query(EvaluationResultDB).count()
+            total_templates = session.query(PromptTemplate).count()
+            
+            # Recent signups (last 7 days)
+            week_ago = datetime.utcnow() - timedelta(days=7)
+            recent_users = session.query(User).filter(User.created_at >= week_ago).count()
+            recent_evaluations = session.query(EvaluationResultDB).filter(
+                EvaluationResultDB.timestamp >= week_ago
+            ).count()
+            
+            return {
+                "total_users": total_users,
+                "total_evaluations": total_evaluations,
+                "total_templates": total_templates,
+                "recent_users_7d": recent_users,
+                "recent_evaluations_7d": recent_evaluations,
+            }
         finally:
             session.close()
 
