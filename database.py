@@ -35,6 +35,9 @@ class User(Base, UserMixin):
     password_reset_token = Column(String(100), nullable=True)
     password_reset_expires = Column(DateTime, nullable=True)
     
+    # User preferences (theme, settings, etc.)
+    preferences = Column(JSON, default=dict)
+    
     # Relationships
     evaluations = relationship("EvaluationResultDB", back_populates="user", lazy="dynamic")
     templates = relationship("PromptTemplate", back_populates="user", lazy="dynamic")
@@ -205,13 +208,14 @@ class Database:
         from sqlalchemy import text
         session = self.SessionLocal()
         try:
-            # Check and add new user columns for password reset and email verification
+            # Check and add new user columns for password reset, email verification, and preferences
             columns_to_add = [
                 ("users", "email_verified", "BOOLEAN DEFAULT 0"),
                 ("users", "email_verification_token", "VARCHAR(100)"),
                 ("users", "email_verification_sent_at", "DATETIME"),
                 ("users", "password_reset_token", "VARCHAR(100)"),
                 ("users", "password_reset_expires", "DATETIME"),
+                ("users", "preferences", "TEXT"),  # JSON stored as text for SQLite compatibility
             ]
             
             for table, column, column_type in columns_to_add:
@@ -735,6 +739,35 @@ class Database:
                 session.add(template)
             
             session.commit()
+        finally:
+            session.close()
+    
+    def get_user_preference(self, user_id: str, key: str) -> Optional[str]:
+        """Get a user preference value."""
+        session = self.SessionLocal()
+        try:
+            user = session.query(User).filter(User.id == user_id).first()
+            if user and user.preferences:
+                return user.preferences.get(key)
+            return None
+        finally:
+            session.close()
+    
+    def set_user_preference(self, user_id: str, key: str, value: str) -> bool:
+        """Set a user preference value."""
+        session = self.SessionLocal()
+        try:
+            user = session.query(User).filter(User.id == user_id).first()
+            if user:
+                if user.preferences is None:
+                    user.preferences = {}
+                # Create a new dict to trigger SQLAlchemy's change detection
+                prefs = dict(user.preferences)
+                prefs[key] = value
+                user.preferences = prefs
+                session.commit()
+                return True
+            return False
         finally:
             session.close()
 

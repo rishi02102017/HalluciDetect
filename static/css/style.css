@@ -1547,3 +1547,163 @@ code, .mono {
     }
 }
 
+/* =============================================
+   Theme System - Accent Color Themes
+   ============================================= */
+
+/* Theme: Indigo (Default) */
+[data-theme="indigo"] {
+    --accent-primary: #6366f1;
+    --accent-secondary: #8b5cf6;
+}
+
+/* Theme: Purple */
+[data-theme="purple"] {
+    --accent-primary: #8b5cf6;
+    --accent-secondary: #a78bfa;
+}
+
+/* Theme: Violet */
+[data-theme="violet"] {
+    --accent-primary: #7c3aed;
+    --accent-secondary: #8b5cf6;
+}
+
+/* Theme: Blue */
+[data-theme="blue"] {
+    --accent-primary: #3b82f6;
+    --accent-secondary: #60a5fa;
+}
+
+/* Theme: Cyan */
+[data-theme="cyan"] {
+    --accent-primary: #06b6d4;
+    --accent-secondary: #22d3ee;
+}
+
+/* Theme: Teal */
+[data-theme="teal"] {
+    --accent-primary: #14b8a6;
+    --accent-secondary: #2dd4bf;
+}
+
+/* Theme: Green */
+[data-theme="green"] {
+    --accent-primary: #22c55e;
+    --accent-secondary: #4ade80;
+}
+
+/* Theme: Lime */
+[data-theme="lime"] {
+    --accent-primary: #84cc16;
+    --accent-secondary: #a3e635;
+}
+
+/* Theme: Yellow */
+[data-theme="yellow"] {
+    --accent-primary: #eab308;
+    --accent-secondary: #facc15;
+}
+
+/* Theme: Orange */
+[data-theme="orange"] {
+    --accent-primary: #f97316;
+    --accent-secondary: #fb923c;
+}
+
+/* Theme: Red */
+[data-theme="red"] {
+    --accent-primary: #ef4444;
+    --accent-secondary: #f87171;
+}
+
+/* Theme: Rose */
+[data-theme="rose"] {
+    --accent-primary: #f43f5e;
+    --accent-secondary: #fb7185;
+}
+
+/* Theme: Pink */
+[data-theme="pink"] {
+    --accent-primary: #ec4899;
+    --accent-secondary: #f472b6;
+}
+
+/* Theme: Fuchsia */
+[data-theme="fuchsia"] {
+    --accent-primary: #d946ef;
+    --accent-secondary: #e879f9;
+}
+
+/* Theme: Slate */
+[data-theme="slate"] {
+    --accent-primary: #64748b;
+    --accent-secondary: #94a3b8;
+}
+
+/* Theme: Zinc */
+[data-theme="zinc"] {
+    --accent-primary: #71717a;
+    --accent-secondary: #a1a1aa;
+}
+
+/* =============================================
+   Theme Picker Styles (Compact)
+   ============================================= */
+
+.theme-picker-compact {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.theme-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.theme-dot:hover {
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.theme-dot.active {
+    border-color: var(--text-primary);
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--text-primary);
+}
+
+.theme-dot[data-theme="indigo"] { background: #6366f1; }
+.theme-dot[data-theme="purple"] { background: #8b5cf6; }
+.theme-dot[data-theme="violet"] { background: #7c3aed; }
+.theme-dot[data-theme="blue"] { background: #3b82f6; }
+.theme-dot[data-theme="cyan"] { background: #06b6d4; }
+.theme-dot[data-theme="teal"] { background: #14b8a6; }
+.theme-dot[data-theme="green"] { background: #22c55e; }
+.theme-dot[data-theme="lime"] { background: #84cc16; }
+.theme-dot[data-theme="yellow"] { background: #eab308; }
+.theme-dot[data-theme="orange"] { background: #f97316; }
+.theme-dot[data-theme="red"] { background: #ef4444; }
+.theme-dot[data-theme="rose"] { background: #f43f5e; }
+.theme-dot[data-theme="pink"] { background: #ec4899; }
+.theme-dot[data-theme="fuchsia"] { background: #d946ef; }
+.theme-dot[data-theme="slate"] { background: #64748b; }
+
+@media (max-width: 600px) {
+    .theme-section > div {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+    
+    .theme-picker-compact {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+

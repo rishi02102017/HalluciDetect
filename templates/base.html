@@ -10,6 +10,14 @@
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%236366f1' rx='20' width='100' height='100'/><text x='50%' y='53%' dominant-baseline='middle' text-anchor='middle' font-size='60' fill='white'>H</text></svg>">
     
+    <!-- Apply theme early to prevent flash of unstyled content -->
+    <script>
+        (function() {
+            const theme = localStorage.getItem('hallucidetect-theme') || 'indigo';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">

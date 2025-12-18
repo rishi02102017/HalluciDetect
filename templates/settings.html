@@ -160,7 +160,7 @@
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
                     <span style="color: var(--text-muted);">Version</span>
-                    <span class="mono">1.1.0</span>
+                    <span class="mono">1.3.0</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
                     <span style="color: var(--text-muted);">Environment</span>
@@ -178,6 +178,37 @@
         </div>
     </div>
 </div>
+
+<!-- Accent Theme - Compact footer section -->
+<div class="theme-section" style="margin-top: 24px; padding: 16px 20px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; color: var(--text-muted);">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 2a10 10 0 0 1 0 20"/>
+            </svg>
+            <span style="font-size: 0.875rem; color: var(--text-secondary);">Accent Color</span>
+            <span id="theme-status" style="font-size: 0.75rem; color: var(--accent-success); display: none; margin-left: 8px;">✓ Saved</span>
+        </div>
+        <div class="theme-picker-compact" id="themePicker">
+            <div class="theme-dot" data-theme="indigo" title="Indigo"></div>
+            <div class="theme-dot" data-theme="purple" title="Purple"></div>
+            <div class="theme-dot" data-theme="violet" title="Violet"></div>
+            <div class="theme-dot" data-theme="blue" title="Blue"></div>
+            <div class="theme-dot" data-theme="cyan" title="Cyan"></div>
+            <div class="theme-dot" data-theme="teal" title="Teal"></div>
+            <div class="theme-dot" data-theme="green" title="Green"></div>
+            <div class="theme-dot" data-theme="lime" title="Lime"></div>
+            <div class="theme-dot" data-theme="yellow" title="Yellow"></div>
+            <div class="theme-dot" data-theme="orange" title="Orange"></div>
+            <div class="theme-dot" data-theme="red" title="Red"></div>
+            <div class="theme-dot" data-theme="rose" title="Rose"></div>
+            <div class="theme-dot" data-theme="pink" title="Pink"></div>
+            <div class="theme-dot" data-theme="fuchsia" title="Fuchsia"></div>
+            <div class="theme-dot" data-theme="slate" title="Slate"></div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -185,7 +216,70 @@
 document.addEventListener('DOMContentLoaded', function() {
     loadModels();
     loadDatabaseInfo();
+    initThemePicker();
 });
+
+// ==================== Theme System ====================
+
+function initThemePicker() {
+    const picker = document.getElementById('themePicker');
+    if (!picker) return;
+    
+    const dots = picker.querySelectorAll('.theme-dot');
+    
+    // Load current theme
+    const currentTheme = localStorage.getItem('hallucidetect-theme') || 'indigo';
+    setActiveTheme(currentTheme);
+    
+    // Add click handlers
+    dots.forEach(dot => {
+        dot.addEventListener('click', function() {
+            const theme = this.getAttribute('data-theme');
+            applyTheme(theme);
+            saveTheme(theme);
+        });
+    });
+}
+
+function setActiveTheme(theme) {
+    const dots = document.querySelectorAll('.theme-dot');
+    dots.forEach(dot => {
+        dot.classList.remove('active');
+        if (dot.getAttribute('data-theme') === theme) {
+            dot.classList.add('active');
+        }
+    });
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    setActiveTheme(theme);
+}
+
+async function saveTheme(theme) {
+    // Save to localStorage
+    localStorage.setItem('hallucidetect-theme', theme);
+    
+    // Save to server for logged-in users
+    try {
+        await fetch('/api/user/theme', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ theme: theme })
+        });
+    } catch (error) {
+        // Silently fail - localStorage is the fallback
+    }
+    showThemeStatus();
+}
+
+function showThemeStatus() {
+    const status = document.getElementById('theme-status');
+    if (status) {
+        status.style.display = 'inline';
+        setTimeout(() => { status.style.display = 'none'; }, 1500);
+    }
+}
 
 async function loadModels() {
     try {

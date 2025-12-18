@@ -9,6 +9,14 @@
     
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%236366f1' rx='20' width='100' height='100'/><text x='50%' y='53%' dominant-baseline='middle' text-anchor='middle' font-size='60' fill='white'>H</text></svg>">
     
+    <!-- Apply theme early to prevent flash -->
+    <script>
+        (function() {
+            const theme = localStorage.getItem('hallucidetect-theme') || 'indigo';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -33,6 +41,23 @@
             --border: rgba(255, 255, 255, 0.06);
             --gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
         }
+        
+        /* Theme overrides for landing page */
+        [data-theme="indigo"] { --accent: #6366f1; --accent-bright: #818cf8; --accent-glow: rgba(99, 102, 241, 0.5); --gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+        [data-theme="purple"] { --accent: #8b5cf6; --accent-bright: #a78bfa; --accent-glow: rgba(139, 92, 246, 0.5); --gradient: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%); }
+        [data-theme="violet"] { --accent: #7c3aed; --accent-bright: #8b5cf6; --accent-glow: rgba(124, 58, 237, 0.5); --gradient: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%); }
+        [data-theme="blue"] { --accent: #3b82f6; --accent-bright: #60a5fa; --accent-glow: rgba(59, 130, 246, 0.5); --gradient: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); }
+        [data-theme="cyan"] { --accent: #06b6d4; --accent-bright: #22d3ee; --accent-glow: rgba(6, 182, 212, 0.5); --gradient: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%); }
+        [data-theme="teal"] { --accent: #14b8a6; --accent-bright: #2dd4bf; --accent-glow: rgba(20, 184, 166, 0.5); --gradient: linear-gradient(135deg, #14b8a6 0%, #2dd4bf 100%); }
+        [data-theme="green"] { --accent: #22c55e; --accent-bright: #4ade80; --accent-glow: rgba(34, 197, 94, 0.5); --gradient: linear-gradient(135deg, #22c55e 0%, #4ade80 100%); }
+        [data-theme="lime"] { --accent: #84cc16; --accent-bright: #a3e635; --accent-glow: rgba(132, 204, 22, 0.5); --gradient: linear-gradient(135deg, #84cc16 0%, #a3e635 100%); }
+        [data-theme="yellow"] { --accent: #eab308; --accent-bright: #facc15; --accent-glow: rgba(234, 179, 8, 0.5); --gradient: linear-gradient(135deg, #eab308 0%, #facc15 100%); }
+        [data-theme="orange"] { --accent: #f97316; --accent-bright: #fb923c; --accent-glow: rgba(249, 115, 22, 0.5); --gradient: linear-gradient(135deg, #f97316 0%, #fb923c 100%); }
+        [data-theme="red"] { --accent: #ef4444; --accent-bright: #f87171; --accent-glow: rgba(239, 68, 68, 0.5); --gradient: linear-gradient(135deg, #ef4444 0%, #f87171 100%); }
+        [data-theme="rose"] { --accent: #f43f5e; --accent-bright: #fb7185; --accent-glow: rgba(244, 63, 94, 0.5); --gradient: linear-gradient(135deg, #f43f5e 0%, #fb7185 100%); }
+        [data-theme="pink"] { --accent: #ec4899; --accent-bright: #f472b6; --accent-glow: rgba(236, 72, 153, 0.5); --gradient: linear-gradient(135deg, #ec4899 0%, #f472b6 100%); }
+        [data-theme="fuchsia"] { --accent: #d946ef; --accent-bright: #e879f9; --accent-glow: rgba(217, 70, 239, 0.5); --gradient: linear-gradient(135deg, #d946ef 0%, #e879f9 100%); }
+        [data-theme="slate"] { --accent: #64748b; --accent-bright: #94a3b8; --accent-glow: rgba(100, 116, 139, 0.5); --gradient: linear-gradient(135deg, #64748b 0%, #94a3b8 100%); }
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
         

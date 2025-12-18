@@ -27,7 +27,9 @@ class CustomJSONProvider(DefaultJSONProvider):
 
 app = Flask(__name__)
 app.json = CustomJSONProvider(app)
-app.secret_key = os.getenv("SECRET_KEY", "hallucidetect-secret-key-change-in-production")
+app.secret_key = os.getenv("SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError("SECRET_KEY environment variable is required. Add it to your .env file.")
 CORS(app)
 
 # Initialize Flask-Login
@@ -655,6 +657,31 @@ def get_current_user():
             'user': current_user.to_dict()
         })
     return jsonify({'authenticated': False})
+
+@app.route('/api/user/theme', methods=['GET'])
+@login_required
+def get_user_theme():
+    """Get user's theme preference."""
+    theme = db.get_user_preference(current_user.id, 'theme') or 'indigo'
+    return jsonify({'theme': theme})
+
+@app.route('/api/user/theme', methods=['POST'])
+@login_required
+def set_user_theme():
+    """Set user's theme preference."""
+    data = request.get_json() or {}
+    theme = data.get('theme', 'indigo')
+    
+    # Validate theme
+    valid_themes = ['indigo', 'purple', 'violet', 'blue', 'cyan', 'teal', 
+                    'green', 'lime', 'yellow', 'orange', 'red', 'rose', 
+                    'pink', 'fuchsia', 'slate']
+    
+    if theme not in valid_themes:
+        return jsonify({'error': 'Invalid theme'}), 400
+    
+    db.set_user_preference(current_user.id, 'theme', theme)
+    return jsonify({'success': True, 'theme': theme})
 
 # ============ JWT API Authentication ============
 
