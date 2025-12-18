@@ -4,13 +4,19 @@
 {% block header_title %}Dashboard{% endblock %}
 
 {% block header_actions %}
-<a href="{{ url_for('playground') }}" class="btn btn-primary">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="5" x2="12" y2="19"/>
-        <line x1="5" y1="12" x2="19" y2="12"/>
-    </svg>
-    New Evaluation
-</a>
+<div style="display: flex; align-items: center; gap: 12px;">
+    <div id="live-status" class="live-indicator" title="Real-time updates active">
+        <span class="live-dot"></span>
+        <span class="live-text">Live</span>
+    </div>
+    <a href="{{ url_for('playground') }}" class="btn btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New Evaluation
+    </a>
+</div>
 {% endblock %}
 
 {% block content %}
@@ -102,46 +108,256 @@
     </div>
 </div>
 
-<!-- Recent Evaluations -->
-<div class="card">
-    <div class="card-header">
-        <h3 class="card-title">Recent Evaluations</h3>
-        <a href="{{ url_for('evaluations') }}" class="btn btn-ghost btn-sm">View All</a>
+<!-- Main Content Grid -->
+<div class="grid-2 mb-8">
+    <!-- Recent Evaluations -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Recent Evaluations</h3>
+            <a href="{{ url_for('evaluations') }}" class="btn btn-ghost btn-sm">View All</a>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Prompt</th>
+                            <th>Model</th>
+                            <th>Score</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-results">
+                        <tr>
+                            <td colspan="4" class="text-center text-muted" style="padding: 40px;">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-    <div class="card-body" style="padding: 0;">
-        <div class="table-container">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Prompt</th>
-                        <th>Model</th>
-                        <th>Version</th>
-                        <th>Score</th>
-                        <th>Status</th>
-                        <th>Timestamp</th>
-                    </tr>
-                </thead>
-                <tbody id="recent-results">
-                    <tr>
-                        <td colspan="6" class="text-center text-muted" style="padding: 40px;">Loading...</td>
-                    </tr>
-                </tbody>
-            </table>
+
+    <!-- Activity Feed -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Activity Feed</h3>
+            <span id="last-update" style="font-size: 0.75rem; color: var(--text-muted);">Just now</span>
+        </div>
+        <div class="card-body" id="activity-feed" style="max-height: 400px; overflow-y: auto;">
+            <div class="activity-loading">
+                <div class="spinner"></div>
+                <p style="color: var(--text-muted); margin-top: 12px;">Loading activity...</p>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Quick Stats -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">24-Hour Summary</h3>
+        <div id="stats-refresh" style="display: flex; align-items: center; gap: 8px;">
+            <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()" title="Refresh now">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px;">
+            <div class="quick-stat">
+                <div class="quick-stat-value" id="stat-24h-evals">--</div>
+                <div class="quick-stat-label">Evaluations Today</div>
+            </div>
+            <div class="quick-stat">
+                <div class="quick-stat-value" id="stat-24h-hallucinations">--</div>
+                <div class="quick-stat-label">Hallucinations Today</div>
+            </div>
+            <div class="quick-stat">
+                <div class="quick-stat-value" id="stat-avg-confidence">--</div>
+                <div class="quick-stat-label">Avg Confidence</div>
+            </div>
+            <div class="quick-stat">
+                <div class="quick-stat-value" id="stat-top-model">--</div>
+                <div class="quick-stat-label">Most Used Model</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    color: var(--accent-success);
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-success);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.live-indicator.updating {
+    background: rgba(99, 102, 241, 0.1);
+    border-color: rgba(99, 102, 241, 0.3);
+    color: var(--accent-primary);
+}
+
+.live-indicator.updating .live-dot {
+    background: var(--accent-primary);
+    animation: none;
+}
+
+.activity-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.activity-icon.success { background: rgba(16, 185, 129, 0.15); color: var(--accent-success); }
+.activity-icon.danger { background: rgba(239, 68, 68, 0.15); color: var(--accent-danger); }
+
+.activity-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.activity-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.activity-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activity-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.quick-stat {
+    text-align: center;
+    padding: 16px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+}
+
+.quick-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.quick-stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.activity-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
+.new-activity {
+    animation: highlightNew 2s ease;
+}
+
+@keyframes highlightNew {
+    0% { background: rgba(99, 102, 241, 0.2); }
+    100% { background: transparent; }
+}
+</style>
 
 {% endblock %}
 
 {% block scripts %}
 <script>
+// Real-time update configuration
+const POLL_INTERVAL = 30000; // 30 seconds
+let lastUpdateTime = new Date();
+let pollTimer = null;
+
 document.addEventListener('DOMContentLoaded', function() {
     loadDashboardData();
+    loadActivityFeed();
+    loadQuickStats();
+    startPolling();
 });
+
+// Start real-time polling
+function startPolling() {
+    pollTimer = setInterval(async () => {
+        await refreshDashboard();
+    }, POLL_INTERVAL);
+}
+
+// Manual refresh
+async function refreshDashboard() {
+    const liveStatus = document.getElementById('live-status');
+    liveStatus.classList.add('updating');
+    document.querySelector('.live-text').textContent = 'Updating...';
+    
+    try {
+        await Promise.all([
+            loadDashboardData(),
+            loadActivityFeed(),
+            loadQuickStats()
+        ]);
+        
+        lastUpdateTime = new Date();
+        document.getElementById('last-update').textContent = 'Just now';
+    } catch (error) {
+        console.error('Error refreshing:', error);
+    } finally {
+        liveStatus.classList.remove('updating');
+        document.querySelector('.live-text').textContent = 'Live';
+    }
+}
 
 async function loadDashboardData() {
     try {
-        // Load results
         const resultsResponse = await fetch('/api/results?limit=100');
         const results = await resultsResponse.json();
         
@@ -154,10 +370,9 @@ async function loadDashboardData() {
             : 0;
         const uniqueModels = new Set(results.map(r => r.model_name)).size;
         
-        // Update metrics
-        document.getElementById('metric-total').textContent = totalEvaluations;
+        // Update metrics with animation
+        animateValue('metric-total', totalEvaluations);
         document.getElementById('metric-total-change').textContent = `${hallucinations} hallucinations detected`;
-        document.getElementById('metric-total-change').className = 'metric-change';
         
         document.getElementById('metric-rate').textContent = hallucinationRate + '%';
         document.getElementById('metric-rate-change').textContent = hallucinationRate > 30 ? 'Above threshold' : 'Within acceptable range';
@@ -165,19 +380,74 @@ async function loadDashboardData() {
         
         document.getElementById('metric-avg').textContent = avgScore + '%';
         document.getElementById('metric-avg-change').textContent = 'Confidence score';
-        document.getElementById('metric-avg-change').className = 'metric-change';
         
         document.getElementById('metric-models').textContent = uniqueModels;
         
-        // Render recent results table
-        renderRecentResults(results.slice(0, 10));
-        
-        // Render charts
+        renderRecentResults(results.slice(0, 8));
         renderTrendChart(results);
         renderDistributionChart(results);
         
     } catch (error) {
         console.error('Error loading dashboard data:', error);
+    }
+}
+
+async function loadActivityFeed() {
+    try {
+        const response = await fetch('/api/dashboard/activity?limit=10');
+        const activities = await response.json();
+        
+        const container = document.getElementById('activity-feed');
+        
+        if (activities.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                    <p>No recent activity</p>
+                    <a href="{{ url_for('playground') }}" class="btn btn-primary btn-sm" style="margin-top: 12px;">Run First Evaluation</a>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = activities.map((a, i) => {
+            const time = timeAgo(new Date(a.timestamp));
+            const iconClass = a.is_hallucination ? 'danger' : 'success';
+            const icon = a.is_hallucination 
+                ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+            
+            return `
+                <div class="activity-item ${i === 0 ? 'new-activity' : ''}">
+                    <div class="activity-icon ${iconClass}">${icon}</div>
+                    <div class="activity-content">
+                        <div class="activity-title">${escapeHtml(a.title)}</div>
+                        <div class="activity-desc">${escapeHtml(a.description)}</div>
+                    </div>
+                    <div class="activity-time">${time}</div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading activity feed:', error);
+    }
+}
+
+async function loadQuickStats() {
+    try {
+        const response = await fetch('/api/dashboard/stats');
+        const stats = await response.json();
+        
+        document.getElementById('stat-24h-evals').textContent = stats.evaluations_24h || 0;
+        document.getElementById('stat-24h-hallucinations').textContent = stats.hallucinations_24h || 0;
+        document.getElementById('stat-avg-confidence').textContent = (stats.avg_confidence || 0) + '%';
+        
+        // Find most used model
+        const topModel = stats.models_used && stats.models_used.length > 0
+            ? stats.models_used.reduce((a, b) => a.count > b.count ? a : b).name.split('/').pop().split('-')[0]
+            : '--';
+        document.getElementById('stat-top-model').textContent = topModel;
+    } catch (error) {
+        console.error('Error loading quick stats:', error);
     }
 }
 
@@ -187,7 +457,7 @@ function renderRecentResults(results) {
     if (results.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="text-center text-muted" style="padding: 40px;">
+                <td colspan="4" class="text-center text-muted" style="padding: 40px;">
                     No evaluations yet. Run your first evaluation in the Playground.
                 </td>
             </tr>
@@ -196,29 +466,26 @@ function renderRecentResults(results) {
     }
     
     tbody.innerHTML = results.map(r => {
-        const score = ((1 - r.overall_hallucination_score) * 100).toFixed(1);
+        const score = ((1 - r.overall_hallucination_score) * 100).toFixed(0);
         const scoreClass = r.overall_hallucination_score > 0.5 ? 'high' : r.overall_hallucination_score > 0.3 ? 'medium' : 'low';
         const statusBadge = r.is_hallucination 
             ? '<span class="badge badge-danger">Hallucination</span>'
             : '<span class="badge badge-success">Verified</span>';
-        const timestamp = new Date(r.timestamp).toLocaleString();
-        const truncatedPrompt = r.prompt.length > 50 ? r.prompt.substring(0, 50) + '...' : r.prompt;
+        const truncatedPrompt = r.prompt.length > 40 ? r.prompt.substring(0, 40) + '...' : r.prompt;
         
         return `
             <tr>
-                <td><span class="mono" style="font-size: 0.8125rem;">${truncatedPrompt}</span></td>
-                <td><span class="badge badge-neutral">${r.model_name}</span></td>
-                <td>${r.prompt_version}</td>
+                <td><span class="mono" style="font-size: 0.8rem;">${escapeHtml(truncatedPrompt)}</span></td>
+                <td><span class="badge badge-neutral">${r.model_name.split('/').pop()}</span></td>
                 <td>
                     <div class="score-display">
-                        <div class="score-bar">
+                        <div class="score-bar" style="width: 60px;">
                             <div class="score-bar-fill ${scoreClass}" style="width: ${score}%"></div>
                         </div>
                         <span class="score-value">${score}%</span>
                     </div>
                 </td>
                 <td>${statusBadge}</td>
-                <td style="color: var(--text-muted); font-size: 0.8125rem;">${timestamp}</td>
             </tr>
         `;
     }).join('');
@@ -230,7 +497,6 @@ function renderTrendChart(results) {
         return;
     }
     
-    // Group by date
     const byDate = {};
     results.forEach(r => {
         const date = new Date(r.timestamp).toLocaleDateString();
@@ -260,15 +526,8 @@ function renderTrendChart(results) {
         paper_bgcolor: 'transparent',
         plot_bgcolor: 'transparent',
         font: { color: '#94a3b8', family: 'Inter' },
-        xaxis: { 
-            gridcolor: '#2a2a3a',
-            linecolor: '#2a2a3a'
-        },
-        yaxis: { 
-            gridcolor: '#2a2a3a',
-            linecolor: '#2a2a3a',
-            title: 'Hallucination Rate (%)'
-        }
+        xaxis: { gridcolor: '#2a2a3a', linecolor: '#2a2a3a' },
+        yaxis: { gridcolor: '#2a2a3a', linecolor: '#2a2a3a', title: 'Hallucination Rate (%)' }
     };
     
     Plotly.newPlot('trend-chart', [trace], layout, { responsive: true, displayModeBar: false });
@@ -285,10 +544,7 @@ function renderDistributionChart(results) {
     const trace = {
         x: scores,
         type: 'histogram',
-        marker: { 
-            color: '#6366f1',
-            line: { color: '#8b5cf6', width: 1 }
-        },
+        marker: { color: '#6366f1', line: { color: '#8b5cf6', width: 1 } },
         nbinsx: 20
     };
     
@@ -297,21 +553,50 @@ function renderDistributionChart(results) {
         paper_bgcolor: 'transparent',
         plot_bgcolor: 'transparent',
         font: { color: '#94a3b8', family: 'Inter' },
-        xaxis: { 
-            gridcolor: '#2a2a3a',
-            linecolor: '#2a2a3a',
-            title: 'Confidence Score (%)'
-        },
-        yaxis: { 
-            gridcolor: '#2a2a3a',
-            linecolor: '#2a2a3a',
-            title: 'Count'
-        },
+        xaxis: { gridcolor: '#2a2a3a', linecolor: '#2a2a3a', title: 'Confidence Score (%)' },
+        yaxis: { gridcolor: '#2a2a3a', linecolor: '#2a2a3a', title: 'Count' },
         bargap: 0.1
     };
     
     Plotly.newPlot('distribution-chart', [trace], layout, { responsive: true, displayModeBar: false });
 }
+
+// Utility functions
+function animateValue(elementId, value) {
+    const el = document.getElementById(elementId);
+    const current = parseInt(el.textContent) || 0;
+    if (current !== value) {
+        el.textContent = value;
+        el.style.animation = 'none';
+        el.offsetHeight; // Trigger reflow
+        el.style.animation = 'pulse 0.3s ease';
+    }
+}
+
+function timeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+    return Math.floor(seconds / 86400) + 'd ago';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Update last update time display
+setInterval(() => {
+    const seconds = Math.floor((new Date() - lastUpdateTime) / 1000);
+    document.getElementById('last-update').textContent = seconds < 10 ? 'Just now' : timeAgo(lastUpdateTime);
+}, 10000);
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (pollTimer) clearInterval(pollTimer);
+});
 </script>
 {% endblock %}
 

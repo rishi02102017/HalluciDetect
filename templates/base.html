@@ -84,6 +84,14 @@
                         </svg>
                         <span class="nav-item-text">Templates</span>
                     </a>
+                    <a href="{{ url_for('test_suites_page') }}" class="nav-item {% if active_page == 'test-suites' %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                            <rect x="9" y="3" width="6" height="4" rx="2"/>
+                            <path d="M9 14l2 2 4-4"/>
+                        </svg>
+                        <span class="nav-item-text">Test Suites</span>
+                    </a>
                 </div>
                 
                 <div class="nav-section">

@@ -1,0 +1,551 @@
+{% extends "base.html" %}
+
+{% block title %}Test Suites - HalluciDetect{% endblock %}
+
+{% block content %}
+<div class="page-content">
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h1 style="margin-bottom: 4px;">Test Suites</h1>
+            <p style="color: var(--text-muted);">Create and run automated test suites for batch evaluation</p>
+        </div>
+        <button class="btn btn-primary" onclick="showCreateSuiteModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                <path d="M12 5v14M5 12h14"/>
+            </svg>
+            New Test Suite
+        </button>
+    </div>
+
+    <!-- Suites Grid -->
+    <div id="suites-container" class="templates-grid">
+        <!-- Loading state -->
+        <div class="empty-state" id="suites-loading">
+            <div class="spinner" style="margin: 0 auto 16px;"></div>
+            <p>Loading test suites...</p>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="no-suites" style="display: none;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-state-icon">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+        </svg>
+        <h3 class="empty-state-title">No Test Suites Yet</h3>
+        <p class="empty-state-text">Create your first test suite to start batch testing</p>
+        <button class="btn btn-primary" onclick="showCreateSuiteModal()">Create Test Suite</button>
+    </div>
+</div>
+
+<!-- Create Suite Modal -->
+<div class="modal" id="create-suite-modal" style="display: none;">
+    <div class="modal-backdrop" onclick="closeModal('create-suite-modal')"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Create Test Suite</h2>
+            <button class="modal-close" onclick="closeModal('create-suite-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Name *</label>
+                <input type="text" class="form-input" id="suite-name" placeholder="e.g., Q&A Accuracy Tests">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea class="form-textarea" id="suite-description" rows="3" placeholder="What does this test suite evaluate?"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Default Model</label>
+                <select class="form-select" id="suite-model">
+                    <optgroup label="OpenAI">
+                        <option value="gpt-4o-mini" selected>GPT-4o Mini</option>
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="o1-mini">o1-mini</option>
+                    </optgroup>
+                    <optgroup label="Anthropic">
+                        <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                        <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
+                    </optgroup>
+                    <optgroup label="Google (via OpenRouter)">
+                        <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Free)</option>
+                    </optgroup>
+                    <optgroup label="Meta (via OpenRouter)">
+                        <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
+                    </optgroup>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('create-suite-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="createSuite()">Create Suite</button>
+        </div>
+    </div>
+</div>
+
+<!-- View Suite Modal -->
+<div class="modal" id="view-suite-modal" style="display: none;">
+    <div class="modal-backdrop" onclick="closeModal('view-suite-modal')"></div>
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2 id="view-suite-title">Test Suite</h2>
+            <button class="modal-close" onclick="closeModal('view-suite-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <p id="view-suite-description" style="color: var(--text-secondary); margin-bottom: 8px;"></p>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <span class="badge badge-info" id="view-suite-model"></span>
+                        <span class="badge" id="view-suite-status"></span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-secondary btn-sm" onclick="showAddCaseModal()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                        Add Case
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="runSuite()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                            <polygon points="5 3 19 12 5 21 5 3"/>
+                        </svg>
+                        Run All
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Test Cases List -->
+            <div id="test-cases-container">
+                <div class="empty-state" style="padding: 40px 20px;">
+                    <p>No test cases yet. Add your first test case.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Test Case Modal -->
+<div class="modal" id="add-case-modal" style="display: none;">
+    <div class="modal-backdrop" onclick="closeModal('add-case-modal')"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Add Test Case</h2>
+            <button class="modal-close" onclick="closeModal('add-case-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Name *</label>
+                <input type="text" class="form-input" id="case-name" placeholder="e.g., Capital of France">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Prompt *</label>
+                <textarea class="form-textarea" id="case-prompt" rows="4" placeholder="Enter the prompt to test..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Expected Output (Reference)</label>
+                <textarea class="form-textarea" id="case-expected" rows="3" placeholder="Optional: Expected correct response for comparison"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Tags (comma-separated)</label>
+                <input type="text" class="form-input" id="case-tags" placeholder="e.g., geography, facts, easy">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('add-case-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="addTestCase()">Add Case</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.suite-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all var(--transition-fast);
+}
+
+.suite-card:hover {
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+}
+
+.suite-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.suite-card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.suite-card-stats {
+    display: flex;
+    gap: 16px;
+    margin: 16px 0;
+}
+
+.suite-stat {
+    text-align: center;
+}
+
+.suite-stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.suite-stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.suite-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.test-case-item {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.test-case-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.test-case-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.test-case-prompt {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.test-case-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.tag {
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+.status-passed { background: rgba(16, 185, 129, 0.15); color: var(--accent-success); }
+.status-failed { background: rgba(239, 68, 68, 0.15); color: var(--accent-danger); }
+.status-warning { background: rgba(245, 158, 11, 0.15); color: var(--accent-warning); }
+.status-draft { background: var(--bg-tertiary); color: var(--text-muted); }
+.status-running { background: rgba(99, 102, 241, 0.15); color: var(--accent-primary); }
+.status-completed { background: rgba(16, 185, 129, 0.15); color: var(--accent-success); }
+
+@media (max-width: 768px) {
+    .suite-card-stats {
+        flex-wrap: wrap;
+    }
+    
+    .suite-card-actions {
+        flex-direction: column;
+    }
+    
+    .suite-card-actions .btn {
+        width: 100%;
+    }
+}
+</style>
+
+<script>
+let currentSuiteId = null;
+let currentSuiteData = null;
+
+// Load suites on page load
+document.addEventListener('DOMContentLoaded', loadSuites);
+
+async function loadSuites() {
+    try {
+        const response = await fetch('/api/test-suites');
+        const suites = await response.json();
+        
+        const container = document.getElementById('suites-container');
+        const loading = document.getElementById('suites-loading');
+        const empty = document.getElementById('no-suites');
+        
+        loading.style.display = 'none';
+        
+        if (suites.length === 0) {
+            container.innerHTML = '';
+            empty.style.display = 'block';
+            return;
+        }
+        
+        empty.style.display = 'none';
+        container.innerHTML = suites.map(suite => `
+            <div class="suite-card">
+                <div class="suite-card-header">
+                    <div>
+                        <h3 class="suite-card-title">${escapeHtml(suite.name)}</h3>
+                        <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 4px;">
+                            ${escapeHtml(suite.description || 'No description')}
+                        </p>
+                    </div>
+                    <span class="badge status-${suite.status}">${suite.status}</span>
+                </div>
+                <div class="suite-card-stats">
+                    <div class="suite-stat">
+                        <div class="suite-stat-value">${suite.test_case_count}</div>
+                        <div class="suite-stat-label">Test Cases</div>
+                    </div>
+                    <div class="suite-stat">
+                        <div class="suite-stat-value">${suite.model_name ? suite.model_name.split('/').pop().split('-')[0] : 'Any'}</div>
+                        <div class="suite-stat-label">Model</div>
+                    </div>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 12px;">
+                    ${suite.last_run_at ? 'Last run: ' + new Date(suite.last_run_at).toLocaleDateString() : 'Never run'}
+                </div>
+                <div class="suite-card-actions">
+                    <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="viewSuite('${suite.id}')">View</button>
+                    <button class="btn btn-primary btn-sm" style="flex: 1;" onclick="runSuiteById('${suite.id}')">Run</button>
+                    <button class="btn btn-ghost btn-sm" onclick="deleteSuiteById('${suite.id}')" title="Delete">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading suites:', error);
+        document.getElementById('suites-loading').innerHTML = '<p style="color: var(--accent-danger);">Error loading test suites</p>';
+    }
+}
+
+function showCreateSuiteModal() {
+    document.getElementById('suite-name').value = '';
+    document.getElementById('suite-description').value = '';
+    document.getElementById('create-suite-modal').style.display = 'flex';
+}
+
+async function createSuite() {
+    const name = document.getElementById('suite-name').value.trim();
+    const description = document.getElementById('suite-description').value.trim();
+    const model = document.getElementById('suite-model').value;
+    
+    if (!name) {
+        alert('Please enter a name');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/test-suites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description, model_name: model })
+        });
+        
+        if (response.ok) {
+            closeModal('create-suite-modal');
+            loadSuites();
+        } else {
+            const error = await response.json();
+            alert(error.error || 'Failed to create suite');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to create suite');
+    }
+}
+
+async function viewSuite(suiteId) {
+    currentSuiteId = suiteId;
+    
+    try {
+        const response = await fetch(`/api/test-suites/${suiteId}`);
+        const suite = await response.json();
+        currentSuiteData = suite;
+        
+        document.getElementById('view-suite-title').textContent = suite.name;
+        document.getElementById('view-suite-description').textContent = suite.description || '';
+        document.getElementById('view-suite-model').textContent = suite.model_name || 'Any Model';
+        
+        const statusEl = document.getElementById('view-suite-status');
+        statusEl.textContent = suite.status;
+        statusEl.className = `badge status-${suite.status}`;
+        
+        renderTestCases(suite.test_cases || []);
+        document.getElementById('view-suite-modal').style.display = 'flex';
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to load suite');
+    }
+}
+
+function renderTestCases(cases) {
+    const container = document.getElementById('test-cases-container');
+    
+    if (cases.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding: 40px 20px;">
+                <p>No test cases yet. Add your first test case.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = cases.map(tc => `
+        <div class="test-case-item">
+            <div class="test-case-header">
+                <span class="test-case-name">${escapeHtml(tc.name)}</span>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    ${tc.last_status ? `<span class="badge status-${tc.last_status}">${tc.last_score ? (tc.last_score * 100).toFixed(0) + '%' : tc.last_status}</span>` : ''}
+                    <button class="btn btn-ghost btn-sm" onclick="deleteTestCase('${tc.id}')" title="Delete">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <p class="test-case-prompt">${escapeHtml(tc.prompt)}</p>
+            ${tc.tags && tc.tags.length > 0 ? `
+                <div class="test-case-tags">
+                    ${tc.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
+                </div>
+            ` : ''}
+        </div>
+    `).join('');
+}
+
+function showAddCaseModal() {
+    document.getElementById('case-name').value = '';
+    document.getElementById('case-prompt').value = '';
+    document.getElementById('case-expected').value = '';
+    document.getElementById('case-tags').value = '';
+    document.getElementById('add-case-modal').style.display = 'flex';
+}
+
+async function addTestCase() {
+    const name = document.getElementById('case-name').value.trim();
+    const prompt = document.getElementById('case-prompt').value.trim();
+    const expected = document.getElementById('case-expected').value.trim();
+    const tagsStr = document.getElementById('case-tags').value.trim();
+    
+    if (!name || !prompt) {
+        alert('Name and prompt are required');
+        return;
+    }
+    
+    const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(t => t) : [];
+    
+    try {
+        const response = await fetch(`/api/test-suites/${currentSuiteId}/cases`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, prompt, expected_output: expected, tags })
+        });
+        
+        if (response.ok) {
+            closeModal('add-case-modal');
+            viewSuite(currentSuiteId);
+            loadSuites();
+        } else {
+            const error = await response.json();
+            alert(error.error || 'Failed to add test case');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to add test case');
+    }
+}
+
+async function deleteTestCase(caseId) {
+    if (!confirm('Delete this test case?')) return;
+    
+    try {
+        const response = await fetch(`/api/test-cases/${caseId}`, { method: 'DELETE' });
+        if (response.ok) {
+            viewSuite(currentSuiteId);
+            loadSuites();
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+async function runSuite() {
+    if (!currentSuiteId) return;
+    await runSuiteById(currentSuiteId);
+}
+
+async function runSuiteById(suiteId) {
+    if (!confirm('Run all test cases in this suite? This may take a while.')) return;
+    
+    try {
+        const response = await fetch(`/api/test-suites/${suiteId}/run`, { method: 'POST' });
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert(`Suite completed!\n\nPassed: ${result.passed}\nFailed: ${result.failed}\nWarnings: ${result.warnings}`);
+            loadSuites();
+            if (currentSuiteId === suiteId) {
+                viewSuite(suiteId);
+            }
+        } else {
+            alert(result.error || 'Failed to run suite');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to run suite');
+    }
+}
+
+async function deleteSuiteById(suiteId) {
+    if (!confirm('Delete this test suite and all its test cases?')) return;
+    
+    try {
+        const response = await fetch(`/api/test-suites/${suiteId}`, { method: 'DELETE' });
+        if (response.ok) {
+            loadSuites();
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}
+

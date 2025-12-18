@@ -177,6 +177,133 @@ class EvaluationBatchDB(Base):
     hallucination_rate = Column(Float, default=0.0)
     average_scores = Column(JSON)
 
+
+# ============ Medium Priority Feature Models ============
+
+class TestSuite(Base):
+    """Test suite for batch evaluations."""
+    __tablename__ = "test_suites"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    model_name = Column(String(100))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_run_at = Column(DateTime, nullable=True)
+    status = Column(String(20), default="draft")  # draft, running, completed, failed
+    
+    # Relationships
+    test_cases = relationship("TestCase", back_populates="test_suite", cascade="all, delete-orphan")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "description": self.description,
+            "model_name": self.model_name,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "last_run_at": self.last_run_at.isoformat() if self.last_run_at else None,
+            "status": self.status,
+            "test_case_count": len(self.test_cases) if self.test_cases else 0
+        }
+
+
+class TestCase(Base):
+    """Individual test case within a test suite."""
+    __tablename__ = "test_cases"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    suite_id = Column(String, ForeignKey("test_suites.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    prompt = Column(Text, nullable=False)
+    expected_output = Column(Text)  # Reference text
+    tags = Column(JSON, default=list)  # List of tags
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Last run results
+    last_result_id = Column(String, nullable=True)
+    last_score = Column(Float, nullable=True)
+    last_status = Column(String(20), nullable=True)  # passed, failed, warning
+    
+    # Relationships
+    test_suite = relationship("TestSuite", back_populates="test_cases")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "suite_id": self.suite_id,
+            "name": self.name,
+            "prompt": self.prompt,
+            "expected_output": self.expected_output,
+            "tags": self.tags or [],
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_result_id": self.last_result_id,
+            "last_score": self.last_score,
+            "last_status": self.last_status
+        }
+
+
+class PromptVersion(Base):
+    """Track versions of prompts for versioning."""
+    __tablename__ = "prompt_versions"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    version = Column(Integer, default=1)
+    prompt_text = Column(Text, nullable=False)
+    description = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
+    parent_version_id = Column(String, nullable=True)  # Link to previous version
+    
+    # Performance metrics (updated after evaluations)
+    avg_hallucination_score = Column(Float, nullable=True)
+    evaluation_count = Column(Integer, default=0)
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "version": self.version,
+            "prompt_text": self.prompt_text,
+            "description": self.description,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "is_active": self.is_active,
+            "parent_version_id": self.parent_version_id,
+            "avg_hallucination_score": self.avg_hallucination_score,
+            "evaluation_count": self.evaluation_count
+        }
+
+
+class EvaluationLabel(Base):
+    """Labels/annotations for evaluation results."""
+    __tablename__ = "evaluation_labels"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    evaluation_id = Column(String, ForeignKey("evaluation_results.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    label = Column(String(50), nullable=False)  # e.g., "correct", "incorrect", "needs-review"
+    color = Column(String(20), default="#6366f1")  # Hex color
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "evaluation_id": self.evaluation_id,
+            "user_id": self.user_id,
+            "label": self.label,
+            "color": self.color,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }
+
 class Database:
     """Database interface for storing and retrieving evaluation results."""
     
@@ -842,6 +969,466 @@ class Database:
                 "total_templates": total_templates,
                 "recent_users_7d": recent_users,
                 "recent_evaluations_7d": recent_evaluations,
+            }
+        finally:
+            session.close()
+    
+    # ============ Test Suite Methods ============
+    
+    def create_test_suite(self, user_id: str, name: str, description: str = "", 
+                         model_name: str = None) -> Optional[Dict[str, Any]]:
+        """Create a new test suite."""
+        session = self.SessionLocal()
+        try:
+            suite = TestSuite(
+                user_id=user_id,
+                name=name,
+                description=description,
+                model_name=model_name
+            )
+            session.add(suite)
+            session.commit()
+            session.refresh(suite)
+            return suite.to_dict()
+        except Exception as e:
+            session.rollback()
+            print(f"Error creating test suite: {e}")
+            return None
+        finally:
+            session.close()
+    
+    def get_test_suites(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get all test suites for a user."""
+        session = self.SessionLocal()
+        try:
+            suites = session.query(TestSuite).filter(
+                TestSuite.user_id == user_id
+            ).order_by(TestSuite.updated_at.desc()).all()
+            return [s.to_dict() for s in suites]
+        finally:
+            session.close()
+    
+    def get_test_suite(self, suite_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific test suite with its test cases."""
+        session = self.SessionLocal()
+        try:
+            suite = session.query(TestSuite).filter(
+                TestSuite.id == suite_id,
+                TestSuite.user_id == user_id
+            ).first()
+            if suite:
+                result = suite.to_dict()
+                result["test_cases"] = [tc.to_dict() for tc in suite.test_cases]
+                return result
+            return None
+        finally:
+            session.close()
+    
+    def update_test_suite(self, suite_id: str, user_id: str, **kwargs) -> bool:
+        """Update a test suite."""
+        session = self.SessionLocal()
+        try:
+            suite = session.query(TestSuite).filter(
+                TestSuite.id == suite_id,
+                TestSuite.user_id == user_id
+            ).first()
+            if suite:
+                for key, value in kwargs.items():
+                    if hasattr(suite, key):
+                        setattr(suite, key, value)
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+    
+    def delete_test_suite(self, suite_id: str, user_id: str) -> bool:
+        """Delete a test suite and its test cases."""
+        session = self.SessionLocal()
+        try:
+            suite = session.query(TestSuite).filter(
+                TestSuite.id == suite_id,
+                TestSuite.user_id == user_id
+            ).first()
+            if suite:
+                session.delete(suite)
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+    
+    def add_test_case(self, suite_id: str, user_id: str, name: str, prompt: str,
+                     expected_output: str = None, tags: List[str] = None) -> Optional[Dict[str, Any]]:
+        """Add a test case to a suite."""
+        session = self.SessionLocal()
+        try:
+            # Verify suite ownership
+            suite = session.query(TestSuite).filter(
+                TestSuite.id == suite_id,
+                TestSuite.user_id == user_id
+            ).first()
+            if not suite:
+                return None
+            
+            test_case = TestCase(
+                suite_id=suite_id,
+                name=name,
+                prompt=prompt,
+                expected_output=expected_output,
+                tags=tags or []
+            )
+            session.add(test_case)
+            session.commit()
+            session.refresh(test_case)
+            return test_case.to_dict()
+        except Exception as e:
+            session.rollback()
+            print(f"Error adding test case: {e}")
+            return None
+        finally:
+            session.close()
+    
+    def update_test_case(self, case_id: str, user_id: str, **kwargs) -> bool:
+        """Update a test case."""
+        session = self.SessionLocal()
+        try:
+            case = session.query(TestCase).join(TestSuite).filter(
+                TestCase.id == case_id,
+                TestSuite.user_id == user_id
+            ).first()
+            if case:
+                for key, value in kwargs.items():
+                    if hasattr(case, key):
+                        setattr(case, key, value)
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+    
+    def delete_test_case(self, case_id: str, user_id: str) -> bool:
+        """Delete a test case."""
+        session = self.SessionLocal()
+        try:
+            case = session.query(TestCase).join(TestSuite).filter(
+                TestCase.id == case_id,
+                TestSuite.user_id == user_id
+            ).first()
+            if case:
+                session.delete(case)
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+    
+    def update_test_case_result(self, case_id: str, result_id: str, score: float, status: str) -> bool:
+        """Update test case with evaluation result."""
+        session = self.SessionLocal()
+        try:
+            case = session.query(TestCase).filter(TestCase.id == case_id).first()
+            if case:
+                case.last_result_id = result_id
+                case.last_score = score
+                case.last_status = status
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+    
+    # ============ Prompt Version Methods ============
+    
+    def create_prompt_version(self, user_id: str, name: str, prompt_text: str,
+                             description: str = "", parent_version_id: str = None) -> Optional[Dict[str, Any]]:
+        """Create a new prompt version."""
+        session = self.SessionLocal()
+        try:
+            # Get next version number for this prompt name
+            existing = session.query(PromptVersion).filter(
+                PromptVersion.user_id == user_id,
+                PromptVersion.name == name
+            ).order_by(PromptVersion.version.desc()).first()
+            
+            version = (existing.version + 1) if existing else 1
+            
+            prompt_ver = PromptVersion(
+                user_id=user_id,
+                name=name,
+                version=version,
+                prompt_text=prompt_text,
+                description=description,
+                parent_version_id=parent_version_id
+            )
+            session.add(prompt_ver)
+            session.commit()
+            session.refresh(prompt_ver)
+            return prompt_ver.to_dict()
+        except Exception as e:
+            session.rollback()
+            print(f"Error creating prompt version: {e}")
+            return None
+        finally:
+            session.close()
+    
+    def get_prompt_versions(self, user_id: str, name: str = None) -> List[Dict[str, Any]]:
+        """Get all prompt versions for a user, optionally filtered by name."""
+        session = self.SessionLocal()
+        try:
+            query = session.query(PromptVersion).filter(PromptVersion.user_id == user_id)
+            if name:
+                query = query.filter(PromptVersion.name == name)
+            versions = query.order_by(PromptVersion.name, PromptVersion.version.desc()).all()
+            return [v.to_dict() for v in versions]
+        finally:
+            session.close()
+    
+    def get_prompt_version(self, version_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific prompt version."""
+        session = self.SessionLocal()
+        try:
+            version = session.query(PromptVersion).filter(
+                PromptVersion.id == version_id,
+                PromptVersion.user_id == user_id
+            ).first()
+            return version.to_dict() if version else None
+        finally:
+            session.close()
+    
+    def update_prompt_version_stats(self, version_id: str, hallucination_score: float) -> bool:
+        """Update prompt version statistics after an evaluation."""
+        session = self.SessionLocal()
+        try:
+            version = session.query(PromptVersion).filter(PromptVersion.id == version_id).first()
+            if version:
+                # Calculate running average
+                old_count = version.evaluation_count or 0
+                old_avg = version.avg_hallucination_score or 0
+                new_count = old_count + 1
+                new_avg = ((old_avg * old_count) + hallucination_score) / new_count
+                
+                version.evaluation_count = new_count
+                version.avg_hallucination_score = new_avg
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+    
+    def get_prompt_names(self, user_id: str) -> List[str]:
+        """Get unique prompt names for a user."""
+        session = self.SessionLocal()
+        try:
+            from sqlalchemy import distinct
+            names = session.query(distinct(PromptVersion.name)).filter(
+                PromptVersion.user_id == user_id
+            ).all()
+            return [n[0] for n in names]
+        finally:
+            session.close()
+    
+    # ============ Evaluation Label Methods ============
+    
+    def add_evaluation_label(self, evaluation_id: str, user_id: str, label: str,
+                            color: str = "#6366f1", notes: str = None) -> Optional[Dict[str, Any]]:
+        """Add a label to an evaluation."""
+        session = self.SessionLocal()
+        try:
+            # Verify the evaluation belongs to this user
+            evaluation = session.query(EvaluationResultDB).filter(
+                EvaluationResultDB.id == evaluation_id,
+                EvaluationResultDB.user_id == user_id
+            ).first()
+            if not evaluation:
+                return None
+            
+            eval_label = EvaluationLabel(
+                evaluation_id=evaluation_id,
+                user_id=user_id,
+                label=label,
+                color=color,
+                notes=notes
+            )
+            session.add(eval_label)
+            session.commit()
+            session.refresh(eval_label)
+            return eval_label.to_dict()
+        except Exception as e:
+            session.rollback()
+            print(f"Error adding label: {e}")
+            return None
+        finally:
+            session.close()
+    
+    def get_evaluation_labels(self, evaluation_id: str, user_id: str) -> List[Dict[str, Any]]:
+        """Get all labels for an evaluation."""
+        session = self.SessionLocal()
+        try:
+            labels = session.query(EvaluationLabel).filter(
+                EvaluationLabel.evaluation_id == evaluation_id,
+                EvaluationLabel.user_id == user_id
+            ).all()
+            return [l.to_dict() for l in labels]
+        finally:
+            session.close()
+    
+    def delete_evaluation_label(self, label_id: str, user_id: str) -> bool:
+        """Delete an evaluation label."""
+        session = self.SessionLocal()
+        try:
+            label = session.query(EvaluationLabel).filter(
+                EvaluationLabel.id == label_id,
+                EvaluationLabel.user_id == user_id
+            ).first()
+            if label:
+                session.delete(label)
+                session.commit()
+                return True
+            return False
+        finally:
+            session.close()
+    
+    def get_evaluations_by_label(self, user_id: str, label: str) -> List[str]:
+        """Get evaluation IDs that have a specific label."""
+        session = self.SessionLocal()
+        try:
+            labels = session.query(EvaluationLabel.evaluation_id).filter(
+                EvaluationLabel.user_id == user_id,
+                EvaluationLabel.label == label
+            ).all()
+            return [l[0] for l in labels]
+        finally:
+            session.close()
+    
+    def get_user_labels(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get all unique labels used by a user with counts."""
+        session = self.SessionLocal()
+        try:
+            from sqlalchemy import func
+            labels = session.query(
+                EvaluationLabel.label,
+                EvaluationLabel.color,
+                func.count(EvaluationLabel.id).label('count')
+            ).filter(
+                EvaluationLabel.user_id == user_id
+            ).group_by(EvaluationLabel.label, EvaluationLabel.color).all()
+            
+            return [{"label": l[0], "color": l[1], "count": l[2]} for l in labels]
+        finally:
+            session.close()
+    
+    # ============ Comparison & Real-time Methods ============
+    
+    def get_evaluation_by_id(self, evaluation_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get a single evaluation by ID."""
+        session = self.SessionLocal()
+        try:
+            result = session.query(EvaluationResultDB).filter(
+                EvaluationResultDB.id == evaluation_id,
+                EvaluationResultDB.user_id == user_id
+            ).first()
+            if result:
+                return {
+                    "id": result.id,
+                    "prompt": result.prompt,
+                    "llm_output": result.llm_output,
+                    "model_name": result.model_name,
+                    "prompt_version": result.prompt_version,
+                    "timestamp": result.timestamp.isoformat() if result.timestamp else None,
+                    "semantic_similarity_score": result.semantic_similarity_score,
+                    "fact_check_score": result.fact_check_score,
+                    "rule_based_score": result.rule_based_score,
+                    "overall_hallucination_score": result.overall_hallucination_score,
+                    "is_hallucination": result.is_hallucination,
+                    "confidence": result.confidence,
+                    "fact_check_details": result.fact_check_details,
+                    "semantic_similarity_details": result.semantic_similarity_details,
+                    "rule_based_details": result.rule_based_details,
+                    "evaluation_metadata": result.evaluation_metadata
+                }
+            return None
+        finally:
+            session.close()
+    
+    def get_recent_evaluations(self, user_id: str, since: datetime) -> List[Dict[str, Any]]:
+        """Get evaluations since a specific timestamp (for real-time updates)."""
+        session = self.SessionLocal()
+        try:
+            results = session.query(EvaluationResultDB).filter(
+                EvaluationResultDB.user_id == user_id,
+                EvaluationResultDB.timestamp > since
+            ).order_by(EvaluationResultDB.timestamp.desc()).limit(50).all()
+            
+            return [{
+                "id": r.id,
+                "prompt": r.prompt[:100] + "..." if len(r.prompt) > 100 else r.prompt,
+                "model_name": r.model_name,
+                "overall_hallucination_score": r.overall_hallucination_score,
+                "is_hallucination": r.is_hallucination,
+                "confidence": r.confidence,
+                "timestamp": r.timestamp.isoformat() if r.timestamp else None
+            } for r in results]
+        finally:
+            session.close()
+    
+    def get_dashboard_stats(self, user_id: str) -> Dict[str, Any]:
+        """Get real-time dashboard statistics for a user."""
+        session = self.SessionLocal()
+        try:
+            from sqlalchemy import func
+            
+            # Total evaluations
+            total = session.query(func.count(EvaluationResultDB.id)).filter(
+                EvaluationResultDB.user_id == user_id
+            ).scalar() or 0
+            
+            # Hallucinations count
+            hallucinations = session.query(func.count(EvaluationResultDB.id)).filter(
+                EvaluationResultDB.user_id == user_id,
+                EvaluationResultDB.is_hallucination == True
+            ).scalar() or 0
+            
+            # Average confidence
+            avg_confidence = session.query(func.avg(EvaluationResultDB.confidence)).filter(
+                EvaluationResultDB.user_id == user_id
+            ).scalar() or 0
+            
+            # Average hallucination score
+            avg_score = session.query(func.avg(EvaluationResultDB.overall_hallucination_score)).filter(
+                EvaluationResultDB.user_id == user_id
+            ).scalar() or 0
+            
+            # Recent 24h stats
+            day_ago = datetime.utcnow() - timedelta(days=1)
+            recent_total = session.query(func.count(EvaluationResultDB.id)).filter(
+                EvaluationResultDB.user_id == user_id,
+                EvaluationResultDB.timestamp > day_ago
+            ).scalar() or 0
+            
+            recent_hallucinations = session.query(func.count(EvaluationResultDB.id)).filter(
+                EvaluationResultDB.user_id == user_id,
+                EvaluationResultDB.timestamp > day_ago,
+                EvaluationResultDB.is_hallucination == True
+            ).scalar() or 0
+            
+            # Models used
+            models = session.query(
+                EvaluationResultDB.model_name,
+                func.count(EvaluationResultDB.id)
+            ).filter(
+                EvaluationResultDB.user_id == user_id
+            ).group_by(EvaluationResultDB.model_name).all()
+            
+            return {
+                "total_evaluations": total,
+                "hallucinations": hallucinations,
+                "hallucination_rate": (hallucinations / total * 100) if total > 0 else 0,
+                "avg_confidence": round(avg_confidence * 100, 1),
+                "avg_hallucination_score": round(avg_score * 100, 1),
+                "evaluations_24h": recent_total,
+                "hallucinations_24h": recent_hallucinations,
+                "models_used": [{"name": m[0], "count": m[1]} for m in models]
             }
         finally:
             session.close()

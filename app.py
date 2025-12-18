@@ -1581,6 +1581,398 @@ def test_slack():
     return jsonify(result)
 
 
+# ==================== Medium Priority Features ====================
+
+# ============ Test Suites ============
+
+@app.route('/api/test-suites', methods=['GET'])
+@login_required
+def get_test_suites():
+    """Get all test suites for the current user."""
+    suites = db.get_test_suites(current_user.id)
+    return jsonify(suites)
+
+@app.route('/api/test-suites', methods=['POST'])
+@login_required
+def create_test_suite():
+    """Create a new test suite."""
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    
+    if not name:
+        return jsonify({"error": "Name is required"}), 400
+    
+    suite = db.create_test_suite(
+        user_id=current_user.id,
+        name=name,
+        description=data.get('description', ''),
+        model_name=data.get('model_name')
+    )
+    
+    if suite:
+        return jsonify(suite), 201
+    return jsonify({"error": "Failed to create test suite"}), 500
+
+@app.route('/api/test-suites/<suite_id>', methods=['GET'])
+@login_required
+def get_test_suite(suite_id):
+    """Get a specific test suite with test cases."""
+    suite = db.get_test_suite(suite_id, current_user.id)
+    if suite:
+        return jsonify(suite)
+    return jsonify({"error": "Test suite not found"}), 404
+
+@app.route('/api/test-suites/<suite_id>', methods=['PUT'])
+@login_required
+def update_test_suite(suite_id):
+    """Update a test suite."""
+    data = request.get_json()
+    success = db.update_test_suite(suite_id, current_user.id, **data)
+    if success:
+        return jsonify({"success": True})
+    return jsonify({"error": "Test suite not found"}), 404
+
+@app.route('/api/test-suites/<suite_id>', methods=['DELETE'])
+@login_required
+def delete_test_suite(suite_id):
+    """Delete a test suite."""
+    success = db.delete_test_suite(suite_id, current_user.id)
+    if success:
+        return jsonify({"success": True})
+    return jsonify({"error": "Test suite not found"}), 404
+
+@app.route('/api/test-suites/<suite_id>/cases', methods=['POST'])
+@login_required
+def add_test_case(suite_id):
+    """Add a test case to a suite."""
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    prompt = data.get('prompt', '').strip()
+    
+    if not name or not prompt:
+        return jsonify({"error": "Name and prompt are required"}), 400
+    
+    case = db.add_test_case(
+        suite_id=suite_id,
+        user_id=current_user.id,
+        name=name,
+        prompt=prompt,
+        expected_output=data.get('expected_output'),
+        tags=data.get('tags', [])
+    )
+    
+    if case:
+        return jsonify(case), 201
+    return jsonify({"error": "Failed to add test case"}), 500
+
+@app.route('/api/test-cases/<case_id>', methods=['PUT'])
+@login_required
+def update_test_case(case_id):
+    """Update a test case."""
+    data = request.get_json()
+    success = db.update_test_case(case_id, current_user.id, **data)
+    if success:
+        return jsonify({"success": True})
+    return jsonify({"error": "Test case not found"}), 404
+
+@app.route('/api/test-cases/<case_id>', methods=['DELETE'])
+@login_required
+def delete_test_case(case_id):
+    """Delete a test case."""
+    success = db.delete_test_case(case_id, current_user.id)
+    if success:
+        return jsonify({"success": True})
+    return jsonify({"error": "Test case not found"}), 404
+
+@app.route('/api/test-suites/<suite_id>/run', methods=['POST'])
+@login_required
+def run_test_suite(suite_id):
+    """Run all test cases in a suite."""
+    suite = db.get_test_suite(suite_id, current_user.id)
+    if not suite:
+        return jsonify({"error": "Test suite not found"}), 404
+    
+    if not suite.get('test_cases'):
+        return jsonify({"error": "No test cases in suite"}), 400
+    
+    # Update status to running
+    db.update_test_suite(suite_id, current_user.id, status="running")
+    
+    results = []
+    passed = 0
+    failed = 0
+    warnings = 0
+    
+    for case in suite['test_cases']:
+        try:
+            # Run evaluation
+            model = suite.get('model_name') or 'gpt-4o-mini'
+            llm_output = llm_client.generate(case['prompt'], model)
+            
+            eval_result = evaluator.evaluate(
+                prompt=case['prompt'],
+                llm_output=llm_output,
+                reference_text=case.get('expected_output', ''),
+                model_name=model
+            )
+            
+            # Save result
+            db.save_result_with_user(eval_result, current_user.id)
+            
+            # Determine status
+            score = eval_result.overall_hallucination_score
+            if score < 0.3:
+                status = "passed"
+                passed += 1
+            elif score < 0.6:
+                status = "warning"
+                warnings += 1
+            else:
+                status = "failed"
+                failed += 1
+            
+            # Update test case
+            db.update_test_case_result(case['id'], eval_result.id, score, status)
+            
+            results.append({
+                "case_id": case['id'],
+                "case_name": case['name'],
+                "result_id": eval_result.id,
+                "score": score,
+                "status": status
+            })
+        except Exception as e:
+            failed += 1
+            results.append({
+                "case_id": case['id'],
+                "case_name": case['name'],
+                "error": str(e),
+                "status": "failed"
+            })
+    
+    # Update suite status
+    final_status = "completed" if failed == 0 else "failed"
+    db.update_test_suite(suite_id, current_user.id, status=final_status, last_run_at=datetime.utcnow())
+    
+    return jsonify({
+        "suite_id": suite_id,
+        "total": len(suite['test_cases']),
+        "passed": passed,
+        "failed": failed,
+        "warnings": warnings,
+        "results": results
+    })
+
+# ============ Prompt Versioning ============
+
+@app.route('/api/prompt-versions', methods=['GET'])
+@login_required
+def get_prompt_versions():
+    """Get all prompt versions for the current user."""
+    name = request.args.get('name')
+    versions = db.get_prompt_versions(current_user.id, name)
+    return jsonify(versions)
+
+@app.route('/api/prompt-versions', methods=['POST'])
+@login_required
+def create_prompt_version():
+    """Create a new prompt version."""
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    prompt_text = data.get('prompt_text', '').strip()
+    
+    if not name or not prompt_text:
+        return jsonify({"error": "Name and prompt_text are required"}), 400
+    
+    version = db.create_prompt_version(
+        user_id=current_user.id,
+        name=name,
+        prompt_text=prompt_text,
+        description=data.get('description', ''),
+        parent_version_id=data.get('parent_version_id')
+    )
+    
+    if version:
+        return jsonify(version), 201
+    return jsonify({"error": "Failed to create prompt version"}), 500
+
+@app.route('/api/prompt-versions/<version_id>', methods=['GET'])
+@login_required
+def get_prompt_version(version_id):
+    """Get a specific prompt version."""
+    version = db.get_prompt_version(version_id, current_user.id)
+    if version:
+        return jsonify(version)
+    return jsonify({"error": "Prompt version not found"}), 404
+
+@app.route('/api/prompt-names', methods=['GET'])
+@login_required
+def get_prompt_names():
+    """Get unique prompt names for versioning."""
+    names = db.get_prompt_names(current_user.id)
+    return jsonify(names)
+
+# ============ Evaluation Labels/Annotations ============
+
+@app.route('/api/evaluations/<evaluation_id>/labels', methods=['GET'])
+@login_required
+def get_evaluation_labels(evaluation_id):
+    """Get all labels for an evaluation."""
+    labels = db.get_evaluation_labels(evaluation_id, current_user.id)
+    return jsonify(labels)
+
+@app.route('/api/evaluations/<evaluation_id>/labels', methods=['POST'])
+@login_required
+def add_evaluation_label(evaluation_id):
+    """Add a label to an evaluation."""
+    data = request.get_json()
+    label = data.get('label', '').strip()
+    
+    if not label:
+        return jsonify({"error": "Label is required"}), 400
+    
+    result = db.add_evaluation_label(
+        evaluation_id=evaluation_id,
+        user_id=current_user.id,
+        label=label,
+        color=data.get('color', '#6366f1'),
+        notes=data.get('notes')
+    )
+    
+    if result:
+        return jsonify(result), 201
+    return jsonify({"error": "Failed to add label"}), 500
+
+@app.route('/api/labels/<label_id>', methods=['DELETE'])
+@login_required
+def delete_label(label_id):
+    """Delete a label."""
+    success = db.delete_evaluation_label(label_id, current_user.id)
+    if success:
+        return jsonify({"success": True})
+    return jsonify({"error": "Label not found"}), 404
+
+@app.route('/api/labels', methods=['GET'])
+@login_required
+def get_user_labels():
+    """Get all unique labels used by the current user."""
+    labels = db.get_user_labels(current_user.id)
+    return jsonify(labels)
+
+@app.route('/api/evaluations/by-label/<label>', methods=['GET'])
+@login_required
+def get_evaluations_by_label(label):
+    """Get evaluations with a specific label."""
+    evaluation_ids = db.get_evaluations_by_label(current_user.id, label)
+    return jsonify({"label": label, "evaluation_ids": evaluation_ids, "count": len(evaluation_ids)})
+
+# ============ Comparison View ============
+
+@app.route('/api/evaluations/<evaluation_id>', methods=['GET'])
+@login_required
+def get_evaluation_detail(evaluation_id):
+    """Get detailed evaluation for comparison."""
+    result = db.get_evaluation_by_id(evaluation_id, current_user.id)
+    if result:
+        # Also get labels
+        result['labels'] = db.get_evaluation_labels(evaluation_id, current_user.id)
+        return jsonify(result)
+    return jsonify({"error": "Evaluation not found"}), 404
+
+@app.route('/api/compare', methods=['POST'])
+@login_required
+def compare_evaluations():
+    """Compare multiple evaluations side-by-side."""
+    data = request.get_json()
+    evaluation_ids = data.get('evaluation_ids', [])
+    
+    if len(evaluation_ids) < 2:
+        return jsonify({"error": "At least 2 evaluation IDs required"}), 400
+    
+    if len(evaluation_ids) > 4:
+        return jsonify({"error": "Maximum 4 evaluations can be compared"}), 400
+    
+    evaluations = []
+    for eval_id in evaluation_ids:
+        result = db.get_evaluation_by_id(eval_id, current_user.id)
+        if result:
+            result['labels'] = db.get_evaluation_labels(eval_id, current_user.id)
+            evaluations.append(result)
+    
+    if len(evaluations) < 2:
+        return jsonify({"error": "Not enough valid evaluations found"}), 404
+    
+    # Calculate comparison metrics
+    comparison = {
+        "evaluations": evaluations,
+        "metrics": {
+            "avg_hallucination_score": sum(e['overall_hallucination_score'] for e in evaluations) / len(evaluations),
+            "avg_confidence": sum(e['confidence'] for e in evaluations) / len(evaluations),
+            "best_score": min(e['overall_hallucination_score'] for e in evaluations),
+            "worst_score": max(e['overall_hallucination_score'] for e in evaluations),
+            "models": list(set(e['model_name'] for e in evaluations))
+        }
+    }
+    
+    return jsonify(comparison)
+
+# ============ Real-time Dashboard ============
+
+@app.route('/api/dashboard/stats', methods=['GET'])
+@login_required
+def get_dashboard_stats():
+    """Get real-time dashboard statistics."""
+    stats = db.get_dashboard_stats(current_user.id)
+    return jsonify(stats)
+
+@app.route('/api/dashboard/recent', methods=['GET'])
+@login_required
+def get_recent_evaluations():
+    """Get recent evaluations for real-time updates."""
+    since_str = request.args.get('since')
+    if since_str:
+        try:
+            since = datetime.fromisoformat(since_str.replace('Z', '+00:00'))
+        except:
+            since = datetime.utcnow() - timedelta(minutes=5)
+    else:
+        since = datetime.utcnow() - timedelta(minutes=5)
+    
+    results = db.get_recent_evaluations(current_user.id, since)
+    return jsonify({
+        "results": results,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+@app.route('/api/dashboard/activity', methods=['GET'])
+@login_required
+def get_activity_feed():
+    """Get activity feed for the dashboard."""
+    limit = request.args.get('limit', 10, type=int)
+    results = db.get_user_results(current_user.id, limit=limit)
+    
+    activities = []
+    for r in results:
+        activities.append({
+            "id": r.id,
+            "type": "evaluation",
+            "title": f"Evaluated with {r.model_name}",
+            "description": r.prompt[:80] + "..." if len(r.prompt) > 80 else r.prompt,
+            "score": r.overall_hallucination_score,
+            "is_hallucination": r.is_hallucination,
+            "timestamp": r.timestamp.isoformat() if r.timestamp else None
+        })
+    
+    return jsonify(activities)
+
+# ============ Test Suites Page ============
+
+@app.route('/test-suites')
+@login_required
+def test_suites_page():
+    """Test suites management page."""
+    return render_template('test_suites.html', active_page='test-suites')
+
 # ==================== Phase 2 Feature Status ====================
 
 @app.route('/api/features')
@@ -1592,7 +1984,12 @@ def get_features():
             "nlp_metrics": NLP_METRICS_AVAILABLE,
             "ab_testing": AB_TESTING_AVAILABLE,
             "rag_evaluation": RAG_AVAILABLE,
-            "webhooks": WEBHOOKS_AVAILABLE
+            "webhooks": WEBHOOKS_AVAILABLE,
+            "test_suites": True,
+            "prompt_versioning": True,
+            "annotations": True,
+            "comparison_view": True,
+            "realtime_dashboard": True
         },
         "version": "1.3.0"
     })
