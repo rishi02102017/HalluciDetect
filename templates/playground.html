@@ -999,14 +999,14 @@ async function runSingleEvaluation(prompt, promptVersion, referenceText, model) 
         const result = await response.json();
         
         if (result.error) {
-            alert('Error: ' + result.error);
+            showAlert('Evaluation Error', result.error);
             loadingState.style.display = 'none';
             emptyState.style.display = 'block';
         } else {
             displaySingleResult(result, latency, model);
         }
     } catch (error) {
-        alert('Error: ' + error.message);
+        showAlert('Error', error.message);
         loadingState.style.display = 'none';
         emptyState.style.display = 'block';
     }
@@ -1051,14 +1051,14 @@ async function runComparison(prompt, promptVersion, referenceText, model1, model
         const result2 = await response2.json();
         
         if (result1.error || result2.error) {
-            alert('Error: ' + (result1.error || result2.error));
+            showAlert('Comparison Error', result1.error || result2.error);
             loadingState.style.display = 'none';
             emptyState.style.display = 'block';
         } else {
             displayComparisonResults(result1, result2, model1, model2, totalLatency);
         }
     } catch (error) {
-        alert('Error: ' + error.message);
+        showAlert('Error', error.message);
         loadingState.style.display = 'none';
         emptyState.style.display = 'block';
     }

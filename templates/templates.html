@@ -271,10 +271,10 @@ async function saveTemplate(event) {
             loadTemplates();
         } else {
             const error = await response.json();
-            alert(error.error || 'Failed to save template');
+            showAlert('Error', error.error || 'Failed to save template');
         }
     } catch (error) {
-        alert('Error saving template: ' + error.message);
+        showAlert('Error', 'Error saving template: ' + error.message);
     } finally {
         saveBtn.classList.remove('btn-loading');
         saveBtn.disabled = false;

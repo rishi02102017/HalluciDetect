@@ -233,14 +233,34 @@ async function testApiConnection() {
         if (response.ok) {
             const models = await response.json();
             const totalModels = Object.values(models).flat().length;
-            alert(`✓ API Connection Successful!\n\nConnected providers: ${Object.keys(models).length}\nTotal models available: ${totalModels}`);
+            showAlert('API Connection Successful', `
+                <div style="text-align: center;">
+                    <div style="font-size: 2rem; color: var(--accent-success); margin-bottom: 12px;">✓</div>
+                    <p style="color: var(--text-secondary); margin-bottom: 16px;">Connection verified!</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div style="background: var(--bg-tertiary); padding: 12px; border-radius: 8px;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${Object.keys(models).length}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Providers</div>
+                        </div>
+                        <div style="background: var(--bg-tertiary); padding: 12px; border-radius: 8px;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">${totalModels}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Models</div>
+                        </div>
+                    </div>
+                </div>
+            `, true);
             document.getElementById('api-status').className = 'badge badge-success';
             document.getElementById('api-status').textContent = 'Connected';
         } else {
             throw new Error('API returned error');
         }
     } catch (error) {
-        alert('✗ API Connection Failed\n\nPlease check your API keys in the .env file.');
+        showAlert('API Connection Failed', `
+            <div style="text-align: center;">
+                <div style="font-size: 2rem; color: var(--accent-danger); margin-bottom: 12px;">✗</div>
+                <p style="color: var(--text-secondary);">Please check your API keys in the .env file.</p>
+            </div>
+        `, true);
         document.getElementById('api-status').className = 'badge badge-danger';
         document.getElementById('api-status').textContent = 'Disconnected';
     }

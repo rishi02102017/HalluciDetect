@@ -494,14 +494,14 @@ function processCSVFile(file) {
 function parseCSV(text) {
     const lines = text.split('\n').filter(line => line.trim());
     if (lines.length < 2) {
-        alert('CSV must have at least a header row and one data row');
+        showAlert('Invalid CSV', 'CSV must have at least a header row and one data row.');
         return;
     }
     
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
     
     if (!headers.includes('prompt')) {
-        alert('CSV must have a "prompt" column');
+        showAlert('Invalid CSV', 'CSV must have a "prompt" column.');
         return;
     }
     

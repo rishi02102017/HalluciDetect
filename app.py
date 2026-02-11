@@ -1181,7 +1181,7 @@ def evaluate_with_jwt():
     try:
         from llm_client import LLMClient
         llm_client = LLMClient()
-        llm_output = llm_client.generate_response(prompt, model_name)
+        llm_output = llm_client.generate(prompt, model_name)
     except Exception as e:
         return jsonify({'error': f'LLM error: {str(e)}'}), 500
     
@@ -1703,33 +1703,73 @@ def run_test_suite(suite_id):
     failed = 0
     warnings = 0
     
+    # Initialize LLM client and evaluator
+    from llm_client import LLMClient
+    llm_client = LLMClient()
+    evaluator = get_evaluator()
+    
     for case in suite['test_cases']:
         try:
             # Run evaluation
             model = suite.get('model_name') or 'gpt-4o-mini'
             llm_output = llm_client.generate(case['prompt'], model)
+            expected_output = case.get('expected_output', '').strip()
             
             eval_result = evaluator.evaluate(
                 prompt=case['prompt'],
                 llm_output=llm_output,
-                reference_text=case.get('expected_output', ''),
+                reference_text=expected_output,
                 model_name=model
             )
             
             # Save result
             db.save_result_with_user(eval_result, current_user.id)
             
-            # Determine status
-            score = eval_result.overall_hallucination_score
-            if score < 0.3:
-                status = "passed"
-                passed += 1
-            elif score < 0.6:
-                status = "warning"
-                warnings += 1
+            # Determine status based on whether expected output was provided
+            if expected_output:
+                # Use a HYBRID approach for matching:
+                # 1. Check if expected output is CONTAINED in LLM response (for short answers)
+                # 2. Use semantic similarity as secondary metric
+                
+                expected_lower = expected_output.lower().strip()
+                response_lower = llm_output.lower().strip()
+                
+                # Check containment (good for short factual answers like "Paris")
+                contains_expected = expected_lower in response_lower
+                
+                # Get semantic similarity
+                similarity = eval_result.semantic_similarity_score
+                
+                # Determine score: if contains expected, boost similarity
+                if contains_expected:
+                    # If response contains the expected answer, give high score
+                    score = max(similarity, 0.8)  # At least 80% if contains expected
+                else:
+                    score = similarity
+                
+                if score >= 0.6:
+                    status = "passed"
+                    passed += 1
+                elif score >= 0.3:
+                    status = "warning"
+                    warnings += 1
+                else:
+                    status = "failed"
+                    failed += 1
             else:
-                status = "failed"
-                failed += 1
+                # Use HALLUCINATION SCORE when no expected output (sanity check mode)
+                # Lower hallucination = better = pass
+                score = eval_result.overall_hallucination_score
+                
+                if score < 0.3:
+                    status = "passed"
+                    passed += 1
+                elif score < 0.6:
+                    status = "warning"
+                    warnings += 1
+                else:
+                    status = "failed"
+                    failed += 1
             
             # Update test case
             db.update_test_case_result(case['id'], eval_result.id, score, status)
@@ -1738,16 +1778,25 @@ def run_test_suite(suite_id):
                 "case_id": case['id'],
                 "case_name": case['name'],
                 "result_id": eval_result.id,
-                "score": score,
-                "status": status
+                "score": round(score, 3) if score is not None else 0,
+                "similarity": round(score, 3) if expected_output else None,
+                "hallucination_score": round(eval_result.overall_hallucination_score, 3) if eval_result.overall_hallucination_score else 0,
+                "status": status,
+                "mode": "match" if expected_output else "sanity"
             })
         except Exception as e:
+            import traceback
+            print(f"Test case error: {e}")
+            traceback.print_exc()
             failed += 1
             results.append({
                 "case_id": case['id'],
                 "case_name": case['name'],
                 "error": str(e),
-                "status": "failed"
+                "status": "failed",
+                "similarity": None,
+                "hallucination_score": None,
+                "mode": "error"
             })
     
     # Update suite status

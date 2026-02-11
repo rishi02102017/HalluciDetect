@@ -184,8 +184,87 @@
         </main>
     </div>
     
-    <!-- Mobile sidebar toggle script -->
+    <!-- Global Confirm Modal -->
+    <div class="modal" id="global-confirm-modal" style="display: none;">
+        <div class="modal-backdrop" onclick="closeGlobalConfirm(false)"></div>
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 id="global-confirm-title">Confirm</h2>
+                <button class="modal-close" onclick="closeGlobalConfirm(false)">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="global-confirm-message" style="color: var(--text-secondary);"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeGlobalConfirm(false)">Cancel</button>
+                <button class="btn btn-primary" id="global-confirm-btn" onclick="closeGlobalConfirm(true)">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Alert Modal -->
+    <div class="modal" id="global-alert-modal" style="display: none;">
+        <div class="modal-backdrop" onclick="closeGlobalAlert()"></div>
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2 id="global-alert-title">Notice</h2>
+                <button class="modal-close" onclick="closeGlobalAlert()">&times;</button>
+            </div>
+            <div class="modal-body" id="global-alert-body"></div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeGlobalAlert()">OK</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mobile sidebar toggle script + Global Modal Functions -->
     <script>
+        // Global modal state
+        let globalConfirmResolve = null;
+        
+        // Global showConfirm - returns Promise
+        function showConfirm(title, message, btnText = 'OK') {
+            return new Promise((resolve) => {
+                globalConfirmResolve = resolve;
+                document.getElementById('global-confirm-title').textContent = title;
+                document.getElementById('global-confirm-message').textContent = message;
+                document.getElementById('global-confirm-btn').textContent = btnText;
+                document.getElementById('global-confirm-modal').style.display = 'flex';
+            });
+        }
+        
+        function closeGlobalConfirm(result) {
+            document.getElementById('global-confirm-modal').style.display = 'none';
+            if (globalConfirmResolve) {
+                globalConfirmResolve(result);
+                globalConfirmResolve = null;
+            }
+        }
+        
+        // Global showAlert
+        function showAlert(title, content, isHtml = false) {
+            document.getElementById('global-alert-title').textContent = title;
+            const body = document.getElementById('global-alert-body');
+            if (isHtml) {
+                body.innerHTML = content;
+            } else {
+                body.innerHTML = `<p style="color: var(--text-secondary);">${escapeHtmlGlobal(content)}</p>`;
+            }
+            document.getElementById('global-alert-modal').style.display = 'flex';
+        }
+        
+        function closeGlobalAlert() {
+            document.getElementById('global-alert-modal').style.display = 'none';
+        }
+        
+        // Helper for escaping HTML
+        function escapeHtmlGlobal(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Mobile sidebar toggle
         (function() {
             const sidebar = document.querySelector('.sidebar');
             const overlay = document.getElementById('sidebarOverlay');
